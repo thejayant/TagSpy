@@ -1,8 +1,9 @@
+import { envNumber } from "./env";
 import { ID_PATTERNS } from "./ids";
 
 const GOOGLE_HOST = "https://www.googletagmanager.com";
-const MAX_BYTES = Number(process.env.MAX_RESPONSE_BYTES ?? 6_000_000);
-const CACHE_MS = Number(process.env.CACHE_SECONDS ?? 300) * 1000;
+const MAX_BYTES = envNumber("MAX_RESPONSE_BYTES", 6_000_000);
+const CACHE_MS = envNumber("CACHE_SECONDS", 300) * 1000;
 const TIMEOUT_MS = 15_000;
 
 export interface PublicResource {

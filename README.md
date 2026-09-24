@@ -67,6 +67,15 @@ API: `POST /api/inspect`, `GET /api/ga4/:id`, `GET /api/gtm/:id`, `GET /api/gtm/
 | `npm test` | Unit tests against real captured Google responses in `tests/fixtures` |
 | `npm run lint` / `npm run typecheck` | Static checks |
 
+## Deploy
+
+Every variable is optional, and a blank value counts as unset, so a dashboard full of empty keys still gets the defaults.
+
+- **Vercel**: import the repo, no settings needed. The database lives in `/tmp` (the only writable path), so history and alerts are per-instance and short-lived, and the worker does not run.
+- **Render (free plan)**: `render.yaml` sets it up (build `npm ci && npm run build`, start `npm start`). The free disk is ephemeral, so history and alerts reset on every deploy or restart, and background workers need a paid plan.
+
+`APP_URL` falls back to the address the host assigns (`RENDER_EXTERNAL_URL` or `VERCEL_PROJECT_PRODUCTION_URL`).
+
 ## Design
 
 Apple-inspired: system font (SF Pro, Inter elsewhere), inset-grouped lists with colored glyphs, sheets, translucent bars, and automatic light and dark mode.

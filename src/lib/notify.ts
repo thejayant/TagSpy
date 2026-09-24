@@ -1,9 +1,8 @@
 import type { ChangeRow, WatchRow } from "./db";
 import { recordNotification } from "./db";
 import type { DiffEntry } from "./diff";
+import { appUrl, envString } from "./env";
 import { assertSafeUrl } from "./url-safety";
-
-const appUrl = () => (process.env.APP_URL ?? "http://localhost:3000").replace(/\/$/, "");
 
 export function describeChange(change: ChangeRow, entries: DiffEntry[]): { subject: string; text: string; link: string } {
   const link = `${appUrl()}/${change.kind}?id=${encodeURIComponent(change.target)}`;
@@ -28,11 +27,11 @@ async function sendWebhook(url: string, payload: Record<string, unknown>): Promi
 }
 
 async function sendEmail(to: string, subject: string, text: string): Promise<"sent" | "skipped"> {
-  const smtp = process.env.SMTP_URL;
+  const smtp = envString("SMTP_URL");
   if (!smtp) return "skipped";
   const nodemailer = await import("nodemailer");
   const transport = nodemailer.createTransport(smtp);
-  await transport.sendMail({ from: process.env.ALERTS_FROM ?? "TagSpy alerts <alerts@localhost>", to, subject: `[TagSpy] ${subject}`, text });
+  await transport.sendMail({ from: envString("ALERTS_FROM") ?? "TagSpy alerts <alerts@localhost>", to, subject: `[TagSpy] ${subject}`, text });
   return "sent";
 }
 

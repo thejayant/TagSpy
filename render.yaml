@@ -1,0 +1,12 @@
+# Render Blueprint (free plan). The disk is ephemeral: history and alerts reset on each deploy or restart.
+services:
+  - type: web
+    name: tagspy
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"

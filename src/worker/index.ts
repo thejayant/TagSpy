@@ -1,9 +1,10 @@
 import { dueTargets } from "@/lib/db";
+import { envNumber } from "@/lib/env";
 import { checkTarget } from "@/lib/service";
 
 /** Re-reads every watched GA4 property / GTM container once per interval and notifies watchers of changes. */
-const intervalHours = Math.max(0.05, Number(process.env.WATCH_INTERVAL_HOURS ?? 24));
-const pollMs = Math.max(10_000, Number(process.env.WATCH_POLL_SECONDS ?? 300) * 1000);
+const intervalHours = Math.max(0.05, envNumber("WATCH_INTERVAL_HOURS", 24));
+const pollMs = Math.max(10_000, envNumber("WATCH_POLL_SECONDS", 300) * 1000);
 let stopping = false;
 
 async function tick() {

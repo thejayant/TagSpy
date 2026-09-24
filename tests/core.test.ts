@@ -2,6 +2,7 @@ import fs from "node:fs";
 import { describe, expect, it } from "vitest";
 import { decode, extractDataJson } from "@/lib/compiled";
 import { contentHash, diffGa4, diffGtm } from "@/lib/diff";
+import { envNumber, envString } from "@/lib/env";
 import { parseGa4 } from "@/lib/ga4/parse";
 import { parseGtm } from "@/lib/gtm/parse";
 import { findIds, idKind, parseInput } from "@/lib/ids";
@@ -83,5 +84,20 @@ describe("pasted page source", () => {
       { id: "G-ABCDEF1234", kind: "GA4", via: "pasted page source" },
     ]);
     expect(idsFromSource("<html></html>")).toEqual([]);
+  });
+});
+
+describe("env", () => {
+  it("treats blank hosting-dashboard variables as unset", () => {
+    process.env.TAGSPY_TEST_NUMBER = "";
+    expect(envNumber("TAGSPY_TEST_NUMBER", 120)).toBe(120);
+    process.env.TAGSPY_TEST_NUMBER = "0";
+    expect(envNumber("TAGSPY_TEST_NUMBER", 120)).toBe(120);
+    process.env.TAGSPY_TEST_NUMBER = " 30 ";
+    expect(envNumber("TAGSPY_TEST_NUMBER", 120)).toBe(30);
+    process.env.TAGSPY_TEST_STRING = "  ";
+    expect(envString("TAGSPY_TEST_STRING")).toBeUndefined();
+    delete process.env.TAGSPY_TEST_NUMBER;
+    delete process.env.TAGSPY_TEST_STRING;
   });
 });

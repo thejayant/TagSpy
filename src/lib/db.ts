@@ -1,16 +1,17 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
 import path from "node:path";
+import { envString } from "./env";
 
 export type TargetKind = "ga4" | "gtm";
 
 // Installs created before the TagLens → TagSpy rename keep using their existing database file.
 const legacyPath = path.resolve(/* turbopackIgnore: true */ "./data/taglens.db");
 const defaultPath = path.resolve(/* turbopackIgnore: true */ "./data/tagspy.db");
-const dbPath = process.env.DATABASE_PATH
-  ? path.resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH)
-  // Vercel functions run from a read-only /var/task; /tmp is the only writable (and per-instance, ephemeral) location.
-  : process.env.VERCEL ? "/tmp/tagspy.db"
+const configuredPath = envString("DATABASE_PATH");
+// Vercel functions run from a read-only /var/task; /tmp is the only writable (and per-instance, ephemeral) location.
+const dbPath = process.env.VERCEL ? "/tmp/tagspy.db"
+  : configuredPath ? path.resolve(/* turbopackIgnore: true */ configuredPath)
   : !fs.existsSync(defaultPath) && fs.existsSync(legacyPath) ? legacyPath : defaultPath;
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
