@@ -54,7 +54,7 @@ export async function fetchPublic(kind: "gtm" | "gtag", rawId: string, options: 
 
   const url = kind === "gtm" ? `${GOOGLE_HOST}/gtm.js?id=${encodeURIComponent(id)}` : `${GOOGLE_HOST}/gtag/js?id=${encodeURIComponent(id)}`;
   const response = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; TagLens/2.0; +public-config-inspector)", Accept: "application/javascript, */*" },
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; TagSpy/2.0; +public-config-inspector)", Accept: "application/javascript, */*" },
     signal: AbortSignal.timeout(TIMEOUT_MS),
     cache: "no-store",
   });

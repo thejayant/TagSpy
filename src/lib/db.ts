@@ -4,12 +4,17 @@ import path from "node:path";
 
 export type TargetKind = "ga4" | "gtm";
 
-const dbPath = path.resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH ?? "./data/taglens.db");
+// Installs created before the TagLens → TagSpy rename keep using their existing database file.
+const legacyPath = path.resolve(/* turbopackIgnore: true */ "./data/taglens.db");
+const defaultPath = path.resolve(/* turbopackIgnore: true */ "./data/tagspy.db");
+const dbPath = process.env.DATABASE_PATH
+  ? path.resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH)
+  : !fs.existsSync(defaultPath) && fs.existsSync(legacyPath) ? legacyPath : defaultPath;
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
-const globalForDb = globalThis as unknown as { __taglensDb?: Database.Database };
-const db = globalForDb.__taglensDb ?? new Database(dbPath);
-globalForDb.__taglensDb = db;
+const globalForDb = globalThis as unknown as { __tagspyDb?: Database.Database };
+const db = globalForDb.__tagspyDb ?? new Database(dbPath);
+globalForDb.__tagspyDb = db;
 db.pragma("journal_mode = WAL");
 db.pragma("busy_timeout = 5000");
 db.exec(`

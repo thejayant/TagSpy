@@ -19,7 +19,7 @@ async function sendWebhook(url: string, payload: Record<string, unknown>): Promi
   if (target.protocol !== "https:") throw new Error("Webhooks must use https.");
   const response = await fetch(target, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "User-Agent": "TagLens-alerts/2.0" },
+    headers: { "Content-Type": "application/json", "User-Agent": "TagSpy-alerts/2.0" },
     body: JSON.stringify(payload),
     signal: AbortSignal.timeout(10_000),
     redirect: "error",
@@ -32,7 +32,7 @@ async function sendEmail(to: string, subject: string, text: string): Promise<"se
   if (!smtp) return "skipped";
   const nodemailer = await import("nodemailer");
   const transport = nodemailer.createTransport(smtp);
-  await transport.sendMail({ from: process.env.ALERTS_FROM ?? "TagLens alerts <alerts@localhost>", to, subject: `[TagLens] ${subject}`, text });
+  await transport.sendMail({ from: process.env.ALERTS_FROM ?? "TagSpy alerts <alerts@localhost>", to, subject: `[TagSpy] ${subject}`, text });
   return "sent";
 }
 
@@ -56,5 +56,5 @@ export async function deliver(watch: WatchRow, change: ChangeRow, entries: DiffE
 }
 
 export async function sendTestWebhook(url: string, target: string): Promise<void> {
-  await sendWebhook(url, { text: `TagLens test alert: you'll be notified here when ${target} changes.`, target, test: true });
+  await sendWebhook(url, { text: `TagSpy test alert: you'll be notified here when ${target} changes.`, target, test: true });
 }

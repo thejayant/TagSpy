@@ -5,10 +5,11 @@ import { Icon } from "./chrome";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
 
-export const EMAIL_KEY = "taglens.email";
+export const EMAIL_KEY = "tagspy.email";
+const LEGACY_EMAIL_KEY = "taglens.email";
 
 export function readSavedEmail(): string {
-  try { return localStorage.getItem(EMAIL_KEY) ?? ""; } catch { return ""; }
+  try { return localStorage.getItem(EMAIL_KEY) ?? localStorage.getItem(LEGACY_EMAIL_KEY) ?? ""; } catch { return ""; }
 }
 
 export function WatchDialog({ kind, target, onClose }: { kind: "ga4" | "gtm"; target: string; onClose: () => void }) {

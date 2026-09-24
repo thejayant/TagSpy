@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useToast } from "./toast";
 
+export const AUTHOR_URL = "https://thejayant.in";
+
 export function Icon({ name, className = "", fill = false, title }: { name: string; className?: string; fill?: boolean; title?: string }) {
   return <span className={`ms ${fill ? "fill" : ""} ${className}`} aria-hidden={title ? undefined : true} title={title}>{name}</span>;
 }
@@ -22,7 +24,13 @@ export function SiteHeader() {
   return (
     <header className="nav">
       <div className="nav-inner">
-        <Link href="/ga4" className="brand"><Logo /><span>TagLens</span></Link>
+        <div className="brand">
+          <Link href="/ga4" className="brand-link" aria-label="TagSpy home"><Logo /></Link>
+          <div className="brand-text">
+            <Link href="/ga4" className="brand-name">TagSpy</Link>
+            <a href={AUTHOR_URL} className="brand-by" target="_blank" rel="noopener">Built by thejayant</a>
+          </div>
+        </div>
         <nav className="nav-links" aria-label="Main">
           {link("/ga4", "GA4")}
           {link("/gtm", "Tag Manager")}
@@ -37,10 +45,13 @@ export function SiteFooter() {
   return (
     <footer className="footer">
       <div className="footer-inner">
-        <p>TagLens reads only the public, published configuration Google serves to every visitor. Nothing is executed, and no account access is used.</p>
-        <nav aria-label="Footer">
-          <Link href="/ga4">GA4</Link><span>|</span><Link href="/gtm">Tag Manager</Link><span>|</span><Link href="/alerts">Alerts</Link>
-        </nav>
+        <p>TagSpy reads only the public, published configuration Google serves to every visitor. Nothing is executed, and no account access is used.</p>
+        <div className="footer-row">
+          <nav aria-label="Footer">
+            <Link href="/ga4">GA4</Link><span>|</span><Link href="/gtm">Tag Manager</Link><span>|</span><Link href="/alerts">Alerts</Link>
+          </nav>
+          <p>Designed and built by <a href={AUTHOR_URL} target="_blank" rel="noopener">thejayant</a> · <a href={AUTHOR_URL} target="_blank" rel="noopener">thejayant.in</a></p>
+        </div>
       </div>
     </footer>
   );

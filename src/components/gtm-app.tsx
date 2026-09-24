@@ -139,7 +139,7 @@ function Workspace({ container: c, changes, refreshing, initialView, onRefresh, 
               <HistoryPanel kind="gtm" target={c.id} refreshKey={c.fetchedAt} onWatch={() => setWatching(true)} />
             </>
           )}
-          <p className="content-foot">TagLens reads only the public, published container. Names are reconstructed because GTM does not publish them.</p>
+          <p className="content-foot">TagSpy reads only the public, published container. Names are reconstructed because GTM does not publish them.</p>
         </main>
 
         {stack.length > 0 && <GtmDrawer container={c} stack={stack} onOpen={push} onBack={() => setStack((current) => current.slice(0, -1))} onClose={closeInspector} docked={wide} />}

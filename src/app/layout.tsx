@@ -8,7 +8,7 @@ const sans = Inter({ subsets: ["latin"], variable: "--font-sans", display: "swap
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "TagLens — See inside any GA4 & Tag Manager setup", template: "%s · TagLens" },
+  title: { default: "TagSpy — See inside any GA4 & Tag Manager setup", template: "%s · TagSpy" },
   description: "Inspect the public GA4 configuration and Google Tag Manager container of any website: events, key events, consent, tags, triggers and variables.",
 };
 

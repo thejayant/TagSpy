@@ -1,1 +1,1 @@
-process.env.DATABASE_PATH = "./data/taglens-test.db";
+process.env.DATABASE_PATH = "./data/tagspy-test.db";
