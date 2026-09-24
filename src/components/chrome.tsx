@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useToast } from "./toast";
 
@@ -13,7 +14,7 @@ export function Icon({ name, className = "", fill = false, title }: { name: stri
 export function Logo() {
   return (
     <span className="logo" aria-hidden="true">
-      <svg viewBox="0 0 24 24" width="22" height="22"><circle cx="10.5" cy="10.5" r="6.5" fill="none" stroke="currentColor" strokeWidth="2.2" /><path d="M15.5 15.5 20 20" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" /><circle cx="10.5" cy="10.5" r="2.3" fill="currentColor" /></svg>
+      <Image src="/icon.svg" width={30} height={30} alt="" />
     </span>
   );
 }

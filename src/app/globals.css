@@ -107,7 +107,11 @@ code, .mono { font-family: var(--mono); font-size: 0.9em; letter-spacing: 0; }
 .brand-name:hover, .brand-link:hover { text-decoration: none; }
 .brand-by { color: var(--label-3); font-size: 11px; letter-spacing: 0; margin-top: 1px; }
 .brand-by:hover { color: var(--accent); text-decoration: none; }
-.logo { color: var(--label); display: grid; }
+.logo { display: grid; width: 30px; height: 30px; filter: drop-shadow(0 3px 7px rgba(23, 94, 190, .22)); }
+.logo img { display: block; width: 100%; height: 100%; }
+.brand-link { border-radius: 9px; transition: transform .18s ease, filter .18s ease; }
+.brand-link:hover { transform: translateY(-1px) rotate(-2deg); filter: brightness(1.06); }
+.brand-link:focus-visible { outline: 3px solid var(--accent-soft); outline-offset: 3px; }
 .nav-links { display: flex; gap: 26px; }
 .nav-links a { color: var(--label); opacity: 0.8; font-size: 13px; letter-spacing: -0.01em; }
 .nav-links a:hover { opacity: 1; text-decoration: none; }

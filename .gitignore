@@ -13,3 +13,4 @@ tsconfig.tsbuildinfo
 _backup/
 GA4spy.com/
 .claude/settings.local.json
+.playwright-cli/
