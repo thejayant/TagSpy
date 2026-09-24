@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Icon } from "./chrome";
+import type { ContextMode } from "@/lib/site-context";
+import { Icon, KIND_NOUN } from "./chrome";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
 
@@ -12,7 +13,7 @@ export function readSavedEmail(): string {
   try { return localStorage.getItem(EMAIL_KEY) ?? localStorage.getItem(LEGACY_EMAIL_KEY) ?? ""; } catch { return ""; }
 }
 
-export function WatchDialog({ kind, target, onClose }: { kind: "ga4" | "gtm"; target: string; onClose: () => void }) {
+export function WatchDialog({ kind, target, onClose }: { kind: ContextMode; target: string; onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [webhook, setWebhook] = useState("");
   const [busy, setBusy] = useState(false);
@@ -45,7 +46,7 @@ export function WatchDialog({ kind, target, onClose }: { kind: "ga4" | "gtm"; ta
     }
   }
 
-  const noun = kind === "gtm" ? "container" : "property";
+  const noun = KIND_NOUN[kind];
   return (
     <Sheet title={`Follow ${target}`} subtitle={`Get notified when this ${noun} changes.`} onClose={onClose}>
       <form className="form" onSubmit={submit}>
@@ -68,14 +69,14 @@ export function WatchDialog({ kind, target, onClose }: { kind: "ga4" | "gtm"; ta
   );
 }
 
-export function WatchBanner({ kind, target, onWatch }: { kind: "ga4" | "gtm"; target: string; variant?: "top" | "bottom"; onWatch: () => void }) {
-  const noun = kind === "gtm" ? "container" : "property";
+export function WatchBanner({ kind, target, onWatch }: { kind: ContextMode; target: string; variant?: "top" | "bottom"; onWatch: () => void }) {
+  const noun = KIND_NOUN[kind];
   return (
     <section className="promo">
       <span className="promo-icon"><Icon name="notifications_active" fill /></span>
       <h3>Know the moment it changes.</h3>
       <p>Follow {target} and we&apos;ll check this {noun} every day. Email by default — add Slack, Teams or a webhook anytime.</p>
-      <button type="button" className="btn btn-primary" onClick={onWatch}>Follow {kind === "gtm" ? "container" : "property"}</button>
+      <button type="button" className="btn btn-primary" onClick={onWatch}>Follow {noun}</button>
     </section>
   );
 }

@@ -2,13 +2,13 @@
 
 import { createContext, useContext, useState } from "react";
 import type { EventRule, Ga4Report as Report, Toggle } from "@/lib/ga4/types";
-import { Icon, Switch, formatDateTime } from "./chrome";
+import { Icon, ProductGlyph, Switch, formatDateTime } from "./chrome";
 import { Sheet } from "./sheet";
 
 const SectionColor = createContext("blue");
 
 /** A Settings-style cell. Rows with details open them in a sheet instead of expanding inline. */
-function Row({ icon, title, description, side, chips, children, toggle }: {
+export function Row({ icon, title, description, side, chips, children, toggle }: {
   icon: string;
   title: string;
   description?: React.ReactNode;
@@ -46,7 +46,7 @@ function Row({ icon, title, description, side, chips, children, toggle }: {
   );
 }
 
-function Section({ id, color, title, children }: { id: string; color: string; icon?: string; title: string; children: React.ReactNode }) {
+export function Section({ id, color, title, children }: { id: string; color: string; icon?: string; title: string; children: React.ReactNode }) {
   return (
     <SectionColor.Provider value={color}>
       <section className="group" id={id} aria-label={title}>
@@ -145,7 +145,7 @@ export function Ga4Report({ report, onWatch, onShare, onRefresh, refreshing }: {
     <div className="report">
       <header className="summary">
         <div className="summary-id">
-          <span className="app-icon g-orange"><Icon name="bar_chart" fill /></span>
+          <ProductGlyph kind="ga4" size="large" />
           <div>
             <p className="eyebrow">Google Analytics 4 property</p>
             <h2 className="mono">{r.measurementId}</h2>

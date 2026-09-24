@@ -7,6 +7,8 @@ export const metadata: Metadata = {
 };
 
 export default async function GtmPage({ searchParams }: PageProps<"/gtm">) {
-  const { id, view } = await searchParams;
-  return <GtmApp initialId={typeof id === "string" ? id : undefined} initialView={typeof view === "string" ? view : undefined} />;
+  const { id, q, view } = await searchParams;
+  // ?q= carries a searched website over from the GA4 page.
+  const input = typeof id === "string" ? id : typeof q === "string" ? q : undefined;
+  return <GtmApp key={input ?? ""} initialId={input} initialView={typeof view === "string" ? view : undefined} />;
 }

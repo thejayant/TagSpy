@@ -70,3 +70,59 @@ export async function fetchPublic(kind: "gtm" | "gtag", rawId: string, options: 
   if (cache.size > 200) cache.delete(cache.keys().next().value!);
   return value;
 }
+
+const META_HOST = "https://connect.facebook.net";
+
+/**
+ * Fetches a Meta Pixel's public configuration (the file every page with the pixel loads). Only
+ * connect.facebook.net is contacted, and only for a numeric pixel ID.
+ */
+export async function fetchMetaConfig(rawId: string, options: { fresh?: boolean } = {}): Promise<PublicResource> {
+  const id = rawId.trim();
+  if (!ID_PATTERNS.META.test(id)) throw new Error(`"${rawId}" is not a valid Meta Pixel ID (10–20 digits).`);
+  const key = `meta:${id}`;
+  const hit = cache.get(key);
+  if (!options.fresh && hit && Date.now() - hit.at < CACHE_MS) return { ...hit.value, cached: true };
+
+  const url = `${META_HOST}/signals/config/${id}?v=2.9.200&r=stable`;
+  const response = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; TagSpy/2.0; +public-config-inspector)", Accept: "application/javascript, */*" },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    cache: "no-store",
+  });
+  if (response.status === 404 || response.status === 400) throw new NotPublishedError(`Meta has no public configuration for pixel ${id} (HTTP ${response.status}).`);
+  if (!response.ok) throw new Error(`Meta responded with HTTP ${response.status} for pixel ${id}.`);
+  const source = await readLimited(response);
+  const value: PublicResource = { id, url, source, fetchedAt: new Date().toISOString(), cached: false };
+  cache.set(key, { at: Date.now(), value });
+  if (cache.size > 200) cache.delete(cache.keys().next().value!);
+  return value;
+}
+
+const SEGMENT_HOST = "https://cdn.segment.com";
+
+/**
+ * Fetches a Segment source's public settings (what analytics.js loads on every page). Only cdn.segment.com
+ * is contacted, and only for a validated write key.
+ */
+export async function fetchSegmentSettings(rawKey: string, options: { fresh?: boolean } = {}): Promise<PublicResource> {
+  const key = rawKey.trim();
+  if (!ID_PATTERNS.SEGMENT.test(key)) throw new Error(`"${rawKey}" is not a valid Segment write key.`);
+  const cacheKey = `segment:${key}`;
+  const hit = cache.get(cacheKey);
+  if (!options.fresh && hit && Date.now() - hit.at < CACHE_MS) return { ...hit.value, cached: true };
+
+  const url = `${SEGMENT_HOST}/v1/projects/${key}/settings`;
+  const response = await fetch(url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; TagSpy/2.0; +public-config-inspector)", Accept: "application/json" },
+    signal: AbortSignal.timeout(TIMEOUT_MS),
+    cache: "no-store",
+  });
+  if (response.status === 404 || response.status === 400) throw new NotPublishedError(`Segment has no public settings for write key ${key} (HTTP ${response.status}). Check the key; the source may be disabled or deleted.`);
+  if (!response.ok) throw new Error(`Segment responded with HTTP ${response.status} for write key ${key}.`);
+  const source = await readLimited(response);
+  const value: PublicResource = { id: key, url, source, fetchedAt: new Date().toISOString(), cached: false };
+  cache.set(cacheKey, { at: Date.now(), value });
+  if (cache.size > 200) cache.delete(cache.keys().next().value!);
+  return value;
+}

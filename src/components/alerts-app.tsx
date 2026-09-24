@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
-import { Icon, SiteFooter, SiteHeader, formatDateTime } from "./chrome";
+import type { ContextMode } from "@/lib/site-context";
+import { Icon, KIND_LABEL, ProductGlyph, SiteFooter, SiteHeader, formatDateTime } from "./chrome";
 import { DiffList } from "./history";
 import { useToast } from "./toast";
 import { EMAIL_KEY, readSavedEmail } from "./watch-dialog";
 
 type Entry = Parameters<typeof DiffList>[0]["entries"][number];
 interface Watch {
-  id: string; kind: "ga4" | "gtm"; target: string; email: string; webhook: string | null; created_at: string;
+  id: string; kind: ContextMode; target: string; email: string; webhook: string | null; created_at: string;
   last_checked_at: string | null; last_status: string | null; last_error: string | null;
   changes: { id: number; detected_at: string; from_version: string | null; to_version: string | null; summary: Entry[] }[];
   notifications: { id: number; channel: string; status: string; error: string | null; created_at: string }[];
@@ -80,10 +81,10 @@ export function AlertsApp() {
           ) : watches.map((watch) => (
             <section className="watch-card" key={watch.id}>
               <header>
-                <span className={`glyph ${watch.kind === "gtm" ? "g-blue" : "g-orange"}`}><Icon name={watch.kind === "gtm" ? "deployed_code" : "bar_chart"} fill /></span>
+                <ProductGlyph kind={watch.kind} />
                 <div>
                   <Link href={`/${watch.kind}?id=${encodeURIComponent(watch.target)}`}><code>{watch.target}</code></Link>
-                  <div className="muted" style={{ fontSize: 13 }}>{watch.kind === "gtm" ? "Tag Manager container" : "GA4 property"} · {watch.email}</div>
+                  <div className="muted" style={{ fontSize: 13 }}>{KIND_LABEL[watch.kind]} · {watch.email}</div>
                 </div>
                 <div className="buttons">
                   <button type="button" className="btn" disabled={!!busy} onClick={() => act(watch, "check")}><Icon name={busy === `${watch.id}:check` ? "progress_activity" : "refresh"} className="sm" /> Check now</button>

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { Ga4Report as Report } from "@/lib/ga4/types";
-import { Icon, SiteFooter, SiteHeader, useShare } from "./chrome";
+import { Icon, RelatedLinks, SiteFooter, SiteHeader, useShare, useSiteContext } from "./chrome";
 import { Ga4Report } from "./ga4-report";
 import { DiffList, HistoryPanel } from "./history";
 import { SearchPanel, useInspect } from "./inspect";
@@ -21,6 +21,11 @@ export function Ga4App({ initialId }: { initialId?: string }) {
   const share = useShare();
   const toast = useToast();
   const report = state.result?.model ?? null;
+  const context = useSiteContext();
+  // Containers and Meta pixels found on the same site, and other GA4 properties of that site.
+  const related = report && (context.ga4.includes(report.measurementId) || context.ga4.includes(report.requestedId.toUpperCase()))
+    ? [...context.gtm.map((id) => ({ kind: "gtm" as const, id })), ...context.meta.map((id) => ({ kind: "meta" as const, id })), ...context.segment.map((id) => ({ kind: "segment" as const, id })), ...context.ga4.filter((id) => id !== report.measurementId && id !== report.requestedId.toUpperCase() && id.startsWith("G-")).map((id) => ({ kind: "ga4" as const, id }))]
+    : [];
   const changes = (state.result?.changes ?? []) as Parameters<typeof DiffList>[0]["entries"];
 
   // Deep links (?id=) load on mount. If the component remounts (e.g. Strict Mode), the hook aborts the
@@ -55,6 +60,7 @@ export function Ga4App({ initialId }: { initialId?: string }) {
                   <div className="list list-pad"><DiffList entries={changes} limit={12} /></div>
                 </section>
               )}
+              <RelatedLinks title="Also on this site" items={related} />
               <Ga4Report report={report} onWatch={() => setWatching(true)} onShare={() => share(shareUrl(), `${report.measurementId} GA4 setup`)} onRefresh={() => submit(report.measurementId, true)} refreshing={state.status === "running"} />
               <section className="group">
                 <h3 className="group-title">History</h3>

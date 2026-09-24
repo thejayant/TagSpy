@@ -3,6 +3,9 @@ import { describe, expect, it } from "vitest";
 import { decode, extractDataJson } from "@/lib/compiled";
 import { contentHash, diffGa4, diffGtm } from "@/lib/diff";
 import { envNumber, envString } from "@/lib/env";
+import { brandForTag } from "@/lib/brands";
+import { primaryId, tagHeadline } from "@/lib/gtm/present";
+import { parseContext, switchHref } from "@/lib/site-context";
 import { parseGa4 } from "@/lib/ga4/parse";
 import { parseGtm } from "@/lib/gtm/parse";
 import { findIds, idKind, parseInput } from "@/lib/ids";
@@ -99,5 +102,42 @@ describe("env", () => {
     expect(envString("TAGSPY_TEST_STRING")).toBeUndefined();
     delete process.env.TAGSPY_TEST_NUMBER;
     delete process.env.TAGSPY_TEST_STRING;
+  });
+});
+
+describe("brands", () => {
+  it("resolves vendor logos from the vendor, the tag group or the tag type", () => {
+    const logo = (tag: Parameters<typeof brandForTag>[0]) => { const brand = brandForTag(tag); return brand && "logo" in brand ? brand.name : brand; };
+    expect(logo({ vendor: "Meta Pixel", group: "Custom" })).toBe("Meta Pixel");
+    expect(logo({ group: "Microsoft Advertising" })).toBe("Microsoft Advertising");
+    expect(logo({ type: "Google Analytics: GA4 Event" })).toBe("Google Analytics");
+    expect(brandForTag({ vendor: "Criteo" })).toEqual({ name: "Criteo", letter: "C", color: "#FE5000" });
+    expect(brandForTag({ group: "Custom" })).toBeUndefined();
+  });
+});
+
+describe("tag presentation", () => {
+  const tag = (name: string, identifiers: { label: string; value: string }[] = [], ids: string[] = []) => ({ name, identifiers, ids });
+  it("builds short list headlines without the trigger, paused marker or primary ID", () => {
+    expect(tagHeadline(tag("Universal Analytics (Paused) · All Page Views"), "All Page Views")).toBe("Universal Analytics");
+    expect(tagHeadline(tag("Google Ads Remarketing — AW-952377818 / Adwords Remarketing", [{ label: "Conversion ID", value: "AW-952377818" }]))).toBe("Google Ads Remarketing — Adwords Remarketing");
+    expect(tagHeadline(tag("GA4 Event — click_to_call", [{ label: "Event name", value: "click_to_call" }, { label: "Measurement ID", value: "G-ABC123" }]))).toBe("GA4 Event — click_to_call");
+    expect(primaryId(tag("Custom HTML — Meta Pixel", [{ label: "Vendor", value: "Meta Pixel" }], ["1882987898627194"]))).toBe("1882987898627194");
+  });
+});
+
+describe("GA4 / Tag Manager switching", () => {
+  it("opens the one known ID, else re-runs the searched site, else the first ID", () => {
+    expect(switchHref("gtm", { site: "example.com", ga4: ["G-AAA"], gtm: ["GTM-ONE"], meta: [], segment: [] })).toBe("/gtm?id=GTM-ONE");
+    expect(switchHref("gtm", { site: "example.com", ga4: ["G-AAA"], gtm: [], meta: [], segment: [] })).toBe("/gtm?q=example.com");
+    expect(switchHref("ga4", { ga4: ["G-AAA", "G-BBB"], gtm: ["GTM-ONE"], meta: [], segment: [] })).toBe("/ga4?id=G-AAA");
+    expect(switchHref("ga4", parseContext(""))).toBe("/ga4");
+  });
+});
+
+describe("Meta switching", () => {
+  it("routes numeric pixel IDs to the Meta page", () => {
+    expect(switchHref("meta", { site: "example.com", ga4: [], gtm: ["GTM-ONE"], meta: ["1882987898627194"], segment: [] })).toBe("/meta?id=1882987898627194");
+    expect(switchHref("meta", { site: "example.com", ga4: [], gtm: [], meta: [], segment: [] })).toBe("/meta?q=example.com");
   });
 });

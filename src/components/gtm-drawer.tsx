@@ -1,8 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { GtmContainer, GtmTag, GtmTrigger, GtmVariable, Param, ParamValue } from "@/lib/gtm/types";
-import { Icon } from "./chrome";
+import { brandByName, brandForTag } from "@/lib/brands";
+import { tagHeadline } from "@/lib/gtm/present";
+import { BrandGlyph, Icon } from "./chrome";
 import { useToast } from "./toast";
 
 export type DrawerItem = { kind: "tag" | "trigger" | "variable"; id: string };
@@ -14,11 +17,17 @@ const TRIGGER_COLOR: Record<string, string> = {
   visibility: "g-blue", web_asset: "g-blue", code: "g-orange", link: "g-teal", mouse: "g-indigo", history: "g-purple", assignment: "g-green",
 };
 
-export function TagIcon({ tag }: { tag: Pick<GtmTag, "icon"> }) {
+const YOUTUBE = brandByName("YouTube");
+
+/** The vendor's logo when the tag's vendor, group or type is recognized; otherwise a generic glyph. */
+export function TagIcon({ tag, size }: { tag: Pick<GtmTag, "icon"> & Partial<Pick<GtmTag, "vendor" | "group" | "type">>; size?: "xs" | "md" | "large" }) {
+  const brand = brandForTag(tag);
+  if (brand) return <BrandGlyph brand={brand} size={size} />;
   const [name, cls] = TAG_ICON[tag.icon] ?? ["sell", "g-gray"];
-  return <span className={`glyph ${cls}`}><Icon name={name} fill /></span>;
+  return <span className={size === "large" ? `app-icon ${cls}` : `glyph ${cls}${size === "xs" ? " xs" : ""}`}><Icon name={name} fill /></span>;
 }
 export function TriggerIcon({ icon }: { icon: string }) {
+  if (icon === "smart_display" && YOUTUBE) return <BrandGlyph brand={YOUTUBE} />;
   return <span className={`glyph ${TRIGGER_COLOR[icon] ?? "g-gray"}`}><Icon name={icon} fill /></span>;
 }
 export function VariableIcon({ icon }: { icon: string }) {
@@ -108,67 +117,128 @@ function LinkItem({ icon, label, sub, onClick }: { icon: React.ReactNode; label:
   return <button type="button" className="link-item" onClick={onClick}>{icon}<span style={{ overflowWrap: "anywhere" }}>{label}</span>{sub && <small>{sub}</small>}</button>;
 }
 
+type TagTab = "overview" | "settings" | "code" | "links";
+
+function Fact({ label, value, tone }: { label: string; value: React.ReactNode; tone?: "live" | "paused" | "warn" }) {
+  return <div className={`fact ${tone ?? ""}`}><span>{label}</span><strong>{value}</strong></div>;
+}
+
 function TagBody({ tag, container, open }: { tag: GtmTag; container: GtmContainer; open: (item: DrawerItem) => void }) {
+  const [tab, setTab] = useState<TagTab>("overview");
+  const toast = useToast();
   const main = tag.params.filter((param) => param.value.kind !== "bool");
   const toggles = tag.params.filter((param) => param.value.kind === "bool");
   const byId = (id: string) => container.triggers.find((trigger) => trigger.id === id);
-  const tagName = (id?: string) => container.tags.find((item) => item.id === id);
-  const setup = tagName(tag.setupTag?.tag);
-  const teardown = tagName(tag.teardownTag?.tag);
+  const tagById = (id?: string) => container.tags.find((item) => item.id === id);
+  const setup = tagById(tag.setupTag?.tag);
+  const teardown = tagById(tag.teardownTag?.tag);
+  const variables = [...new Set(tag.variablesUsed)].map((id) => container.variables.find((item) => item.id === id)).filter((item): item is GtmVariable => !!item);
+  const tabs: Array<[TagTab, string, number | null]> = [
+    ["overview", "Overview", null],
+    ["settings", "Settings", main.length + toggles.length || null],
+    ...(tag.html ? [["code", "Code", null] as [TagTab, string, null]] : []),
+    ...(tag.ids.length || variables.length ? [["links", "Links", tag.ids.length + variables.length] as [TagTab, string, number]] : []),
+  ];
+  const triggerLinks = (ids: string[]) => ids.map((id) => { const trigger = byId(id)!; return <LinkItem key={id} icon={<TriggerIcon icon={trigger.icon} />} label={trigger.name} sub={trigger.type} onClick={() => open({ kind: "trigger", id })} />; });
+  const copy = (value: string) => navigator.clipboard.writeText(value).then(() => toast("Copied", value));
+
   return (
     <>
-      <section className="panel">
-        <h3>Tag Configuration</h3>
-        <div className="field">
-          <span className="label">Tag Type</span>
-          <div className="typebox"><TagIcon tag={tag} /><div><strong>{tag.type}</strong><small>{tag.vendor ?? tag.group}</small></div>{tag.paused && <span className="chip chip-warn" style={{ marginLeft: "auto" }}>Paused</span>}</div>
-        </div>
-        {tag.identifiers.length > 0 && <div className="field"><span className="label">Identifiers</span><div className="ident">{tag.identifiers.map((item) => <div key={item.label}><span>{item.label}</span><code>{item.value}</code></div>)}</div></div>}
-        {tag.summary && <div className="field"><div className="summary-line">{tag.summary}</div></div>}
-        {tag.paused && <div className="notice warn">This tag is paused. Google publishes only the type of a paused tag, not its settings.</div>}
-        {tag.html && <div className="field"><span className="label">HTML</span><CodeView code={tag.html} filename={`${tag.name.replace(/[^\w.-]+/g, "_").slice(0, 60)}.html`} label="HTML" /></div>}
-        <Fields params={main} container={container} open={open} />
-        {toggles.length > 0 && <Collapsible title="More Settings">{toggles.map((param) => <Check key={param.key} on={param.value.kind === "bool" && param.value.value}>{param.label}</Check>)}</Collapsible>}
-        <Collapsible title="Advanced Settings">
-          <div className="field"><span className="label">Tag firing priority</span><div className="value">{tag.priority ?? 0}</div></div>
-          <div className="field"><span className="label">Tag firing options</span><div className="value">{tag.firingOption}</div></div>
-          <div className="field">
-            <span className="label">Tag sequencing</span>
-            <Check on={!!setup}>Fire a tag before this tag fires{setup && <> — <button type="button" className="var-ref" onClick={() => open({ kind: "tag", id: setup.id })}>{setup.name}</button>{tag.setupTag?.stopOnFailure ? " (don't fire if it fails)" : ""}</>}</Check>
-            <Check on={!!teardown}>Fire a tag after this tag fires{teardown && <> — <button type="button" className="var-ref" onClick={() => open({ kind: "tag", id: teardown.id })}>{teardown.name}</button></>}</Check>
-          </div>
-          <div className="field">
-            <span className="label">Consent settings</span>
-            <Check on={!tag.consent.length}>No additional consent required</Check>
-            <Check on={tag.consent.length > 0}>Require additional consent for tag to fire{tag.consent.length ? `: ${tag.consent.join(", ")}` : ""}</Check>
-          </div>
-        </Collapsible>
-      </section>
-      <section className="panel">
-        <h3>Triggering</h3>
-        <div className="field">
-          <span className="label">Firing Triggers</span>
-          <div className="link-list">
-            {tag.firingTriggers.length ? tag.firingTriggers.map((id) => { const trigger = byId(id)!; return <LinkItem key={id} icon={<TriggerIcon icon={trigger.icon} />} label={trigger.name} sub={trigger.type} onClick={() => open({ kind: "trigger", id })} />; }) : <p className="muted" style={{ margin: 0 }}>No firing triggers — this tag only fires through sequencing, or never.</p>}
-          </div>
-        </div>
-        {tag.blockingTriggers.length > 0 && (
-          <div className="field">
-            <span className="label">Exceptions</span>
-            <div className="link-list">{tag.blockingTriggers.map((id) => { const trigger = byId(id)!; return <LinkItem key={id} icon={<TriggerIcon icon={trigger.icon} />} label={trigger.name} sub={trigger.type} onClick={() => open({ kind: "trigger", id })} />; })}</div>
-          </div>
-        )}
-      </section>
-      {(tag.ids.length > 0 || tag.variablesUsed.length > 0) && (
+      <div className="facts">
+        <Fact label="Status" value={tag.paused ? "Paused" : "Active"} tone={tag.paused ? "paused" : "live"} />
+        <Fact label="Fires on" value={`${tag.firingTriggers.length} trigger${tag.firingTriggers.length === 1 ? "" : "s"}`} tone={tag.firingTriggers.length ? undefined : "warn"} />
+        <Fact label="Firing" value={tag.firingOption} />
+        <Fact label="Priority" value={tag.priority ?? 0} />
+        <Fact label="Consent" value={tag.consent.length ? tag.consent.join(", ") : "None extra"} />
+        <Fact label="Exceptions" value={tag.blockingTriggers.length || "None"} />
+      </div>
+
+      <div className="segmented small inspector-tabs" role="tablist" aria-label="Tag details">
+        {tabs.map(([key, label, count]) => (
+          <button type="button" role="tab" key={key} aria-selected={tab === key} className={tab === key ? "on" : ""} onClick={() => setTab(key)}>
+            {label}{count !== null && <em>{count}</em>}
+          </button>
+        ))}
+      </div>
+
+      {tab === "overview" && (
+        <>
+          {tag.summary && <div className="summary-line">{tag.summary}</div>}
+          {tag.paused && <div className="notice warn"><Icon name="pause_circle" fill className="sm" />This tag is paused. Google publishes only the type of a paused tag, not its settings.</div>}
+          {tag.identifiers.length > 0 && (
+            <section className="panel">
+              <h3>Identifiers</h3>
+              <div className="ident">
+                {tag.identifiers.map((item) => (
+                  <button type="button" className="ident-item" key={item.label} onClick={() => copy(item.value)} title="Copy">
+                    <span>{item.label}</span><code>{item.value}</code><Icon name="content_copy" className="xs copy-hint" />
+                  </button>
+                ))}
+              </div>
+            </section>
+          )}
+          <section className="panel">
+            <h3>Firing logic</h3>
+            <ol className="flow">
+              <li className="flow-step">
+                <span className="flow-label">When</span>
+                {tag.firingTriggers.length ? <div className="link-list">{triggerLinks(tag.firingTriggers)}</div> : <p className="muted small flow-empty">No firing trigger. This tag fires only through sequencing, or never.</p>}
+              </li>
+              {setup && (
+                <li className="flow-step">
+                  <span className="flow-label">First</span>
+                  <div className="link-list"><LinkItem icon={<TagIcon tag={setup} />} label={setup.name} sub={tag.setupTag?.stopOnFailure ? "Stops if it fails" : "Setup tag"} onClick={() => open({ kind: "tag", id: setup.id })} /></div>
+                </li>
+              )}
+              <li className="flow-step current">
+                <span className="flow-label">Fire</span>
+                <div className="flow-self"><TagIcon tag={tag} /><div><strong>{tagHeadline(tag, tag.firingTriggers[0] ? byId(tag.firingTriggers[0])?.name : undefined)}</strong><small>{tag.type}</small></div></div>
+              </li>
+              {teardown && (
+                <li className="flow-step">
+                  <span className="flow-label">Then</span>
+                  <div className="link-list"><LinkItem icon={<TagIcon tag={teardown} />} label={teardown.name} sub="Cleanup tag" onClick={() => open({ kind: "tag", id: teardown.id })} /></div>
+                </li>
+              )}
+              {tag.blockingTriggers.length > 0 && (
+                <li className="flow-step block">
+                  <span className="flow-label">Unless</span>
+                  <div className="link-list">{triggerLinks(tag.blockingTriggers)}</div>
+                </li>
+              )}
+            </ol>
+          </section>
+        </>
+      )}
+
+      {tab === "settings" && (
         <section className="panel">
-          <h3>References</h3>
-          {tag.ids.length > 0 && <div className="field"><span className="label">IDs in this tag</span><div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{tag.ids.map((id) => <span className="value-chip" key={id}>{id}</span>)}</div></div>}
-          {tag.variablesUsed.length > 0 && <div className="field"><span className="label">Variables used</span><div className="link-list">{[...new Set(tag.variablesUsed)].map((id) => { const variable = container.variables.find((item) => item.id === id); return variable ? <LinkItem key={id} icon={<VariableIcon icon={variable.icon} />} label={variable.name} sub={variable.type} onClick={() => open({ kind: "variable", id })} /> : null; })}</div></div>}
+          <h3>{tag.type}</h3>
+          <Fields params={main} container={container} open={open} />
+          {toggles.length > 0 && <div className="field"><span className="label">Options</span><div className="inner-box">{toggles.map((param) => <Check key={param.key} on={param.value.kind === "bool" && param.value.value}>{param.label}</Check>)}</div></div>}
+          {!main.length && !toggles.length && <p className="muted small">{tag.paused ? "Paused tags publish no settings." : "This tag has no configurable settings."}</p>}
+          <div className="field">
+            <span className="label">Consent</span>
+            <div className="inner-box">
+              <Check on={!tag.consent.length}>No additional consent required</Check>
+              <Check on={tag.consent.length > 0}>Require additional consent{tag.consent.length ? `: ${tag.consent.join(", ")}` : ""}</Check>
+            </div>
+          </div>
         </section>
+      )}
+
+      {tab === "code" && tag.html && <CodeView code={tag.html} filename={`${tag.name.replace(/[^\w.-]+/g, "_").slice(0, 60)}.html`} label="HTML" />}
+
+      {tab === "links" && (
+        <>
+          {tag.ids.length > 0 && <section className="panel"><h3>IDs in this tag</h3><div className="chip-row">{tag.ids.map((id) => <button type="button" className="value-chip" key={id} onClick={() => copy(id)} title="Copy">{id}</button>)}</div></section>}
+          {variables.length > 0 && <section className="panel"><h3>Variables used</h3><div className="link-list">{variables.map((variable) => <LinkItem key={variable.id} icon={<VariableIcon icon={variable.icon} />} label={variable.name} sub={variable.type} onClick={() => open({ kind: "variable", id: variable.id })} />)}</div></section>}
+        </>
       )}
     </>
   );
 }
+
 
 function TriggerBody({ trigger, container, open }: { trigger: GtmTrigger; container: GtmContainer; open: (item: DrawerItem) => void }) {
   const plural = trigger.type === "Page View" ? "Page Views" : trigger.type === "Custom Event" ? "Custom Events" : trigger.type === "Just Links" ? "Link Clicks" : trigger.type === "All Elements" ? "Clicks" : `${trigger.type} events`;
@@ -264,22 +334,34 @@ export function GtmDrawer({ container, stack, onOpen, onBack, onClose, docked = 
           {stack.length > 1 ? <button type="button" className="text-btn" onClick={onBack}><Icon name="chevron_left" /> Back</button> : <span />}
           <button type="button" className="text-btn strong" onClick={onClose}>{docked ? <Icon name="close" /> : "Done"}</button>
         </div>
-        <div className="inspector-title">
-          {tag && <TagIcon tag={tag} />}
-          {trigger && <TriggerIcon icon={trigger.icon} />}
-          {variable && <VariableIcon icon={variable.icon} />}
-          <div><h2>{title}</h2><p>{kindLabel}</p></div>
-        </div>
+        {tag ? (
+          <div className="inspector-title tag-hero">
+            <TagIcon tag={tag} size="large" />
+            <div>
+              <p className="tag-hero-kicker">{tag.vendor ?? tag.group}</p>
+              <h2>{tagHeadline(tag, container.triggers.find((item) => item.id === tag.firingTriggers[0])?.name)}</h2>
+              <p><span className={`status-badge ${tag.paused ? "paused" : "live"}`}>{tag.paused ? "Paused" : "Active"}</span>{tag.type}</p>
+            </div>
+          </div>
+        ) : (
+          <div className="inspector-title">
+            {trigger && <TriggerIcon icon={trigger.icon} />}
+            {variable && <VariableIcon icon={variable.icon} />}
+            <div><h2>{title}</h2><p>{kindLabel}</p></div>
+          </div>
+        )}
       </header>
       <div className="inspector-body">
-        {tag && <TagBody tag={tag} container={container} open={onOpen} />}
+        {tag && <TagBody key={tag.id} tag={tag} container={container} open={onOpen} />}
         {trigger && <TriggerBody trigger={trigger} container={container} open={onOpen} />}
         {variable && <VariableBody variable={variable} container={container} open={onOpen} />}
       </div>
     </aside>
   );
   if (docked) return panel;
-  return (
-    <div className="sheet-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>{panel}</div>
+  // Rendered on <body> so the glass panels (backdrop-filter) cannot trap the fixed overlay.
+  return createPortal(
+    <div className="sheet-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>{panel}</div>,
+    document.body,
   );
 }

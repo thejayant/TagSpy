@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Icon, formatDateTime } from "./chrome";
+import type { ContextMode } from "@/lib/site-context";
+import { Icon, KIND_NOUN, formatDateTime } from "./chrome";
 
 interface Snapshot { id: number; version: string | null; fetched_at: string; last_seen_at: string }
 interface Entry { area: string; change: "added" | "removed" | "changed"; label: string; detail?: string }
@@ -25,7 +26,7 @@ export function DiffList({ entries, limit }: { entries: Entry[]; limit?: number 
   );
 }
 
-export function HistoryPanel({ kind, target, refreshKey, onWatch }: { kind: "ga4" | "gtm"; target: string; refreshKey?: unknown; onWatch: () => void }) {
+export function HistoryPanel({ kind, target, refreshKey, onWatch }: { kind: ContextMode; target: string; refreshKey?: unknown; onWatch: () => void }) {
   const [data, setData] = useState<{ snapshots: Snapshot[]; changes: Change[] } | null>(null);
   const [error, setError] = useState("");
   const [from, setFrom] = useState<number | "">("");
@@ -55,7 +56,7 @@ export function HistoryPanel({ kind, target, refreshKey, onWatch }: { kind: "ga4
     setDiff(response.ok ? body.entries : []);
   }
 
-  const label = (snapshot: Snapshot) => `${kind === "gtm" ? `v${snapshot.version ?? "?"}` : `Library v${snapshot.version ?? "?"}`} · first seen ${formatDateTime(snapshot.fetched_at)}`;
+  const label = (snapshot: Snapshot) => `${kind === "gtm" ? `v${snapshot.version ?? "?"}` : kind === "meta" ? "Configuration" : `Library v${snapshot.version ?? "?"}`} · first seen ${formatDateTime(snapshot.fetched_at)}`;
   if (error) return <div className="alert-card"><Icon name="error" fill /><span>{error}</span></div>;
   if (!data) return <p className="muted">Loading history…</p>;
   return (
@@ -102,14 +103,14 @@ export function HistoryPanel({ kind, target, refreshKey, onWatch }: { kind: "ga4
             </summary>
             <div style={{ marginTop: 8 }}><DiffList entries={change.summary} limit={30} /></div>
           </details>
-        )) : <p className="muted" style={{ margin: 0 }}>No changes detected yet. Each time this {kind === "gtm" ? "container" : "property"} is read, a new version is stored only if its configuration differs.</p>}
+        )) : <p className="muted" style={{ margin: 0 }}>No changes detected yet. Each time this {KIND_NOUN[kind]} is read, a new version is stored only if its configuration differs.</p>}
       </section>
 
       <section className="promo">
         <span className="promo-icon"><Icon name="history" /></span>
         <h3>Keep every version.</h3>
-        <p>Follow this {kind === "gtm" ? "container" : "property"} and we re-read it daily, keep each published version side by side, and alert you whenever it changes. Google itself only publishes the live version.</p>
-        <button type="button" className="btn btn-primary" onClick={onWatch}>Follow {kind === "gtm" ? "container" : "property"}</button>
+        <p>Follow this {KIND_NOUN[kind]} and we re-read it daily, keep each published version side by side, and alert you whenever it changes. Google itself only publishes the live version.</p>
+        <button type="button" className="btn btn-primary" onClick={onWatch}>Follow {KIND_NOUN[kind]}</button>
       </section>
     </div>
   );

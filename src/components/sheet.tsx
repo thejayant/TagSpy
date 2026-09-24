@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 /** Apple-style sheet: centered card on desktop, bottom sheet on phones. Closes on Esc, backdrop click or Done. */
 export function Sheet({ title, subtitle, onClose, children, wide = false, actions }: {
@@ -20,7 +21,8 @@ export function Sheet({ title, subtitle, onClose, children, wide = false, action
     panel.current?.focus();
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = previous; };
   }, [onClose]);
-  return (
+  // Rendered on <body>: glass panels use backdrop-filter, which would otherwise trap this fixed overlay inside them.
+  return createPortal(
     <div className="sheet-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>
       <div className={`sheet ${wide ? "wide" : ""}`} role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined} tabIndex={-1} ref={panel}>
         <span className="grabber" aria-hidden="true" />
@@ -36,6 +38,7 @@ export function Sheet({ title, subtitle, onClose, children, wide = false, action
         </header>
         <div className="sheet-body">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

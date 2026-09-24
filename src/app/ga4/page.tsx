@@ -7,6 +7,8 @@ export const metadata: Metadata = {
 };
 
 export default async function Ga4Page({ searchParams }: PageProps<"/ga4">) {
-  const { id } = await searchParams;
-  return <Ga4App initialId={typeof id === "string" ? id : undefined} />;
+  const { id, q } = await searchParams;
+  // ?q= carries a searched website over from the Tag Manager page.
+  const input = typeof id === "string" ? id : typeof q === "string" ? q : undefined;
+  return <Ga4App key={input ?? ""} initialId={input} />;
 }

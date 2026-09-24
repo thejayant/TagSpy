@@ -2,15 +2,15 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { createWatch, listChanges, listNotifications, listWatches } from "@/lib/db";
 import { errorResponse, rateLimited } from "@/lib/http";
-import { idKind } from "@/lib/ids";
-import { inspectGa4, inspectGtm } from "@/lib/service";
+import { idKind, normalizeId } from "@/lib/ids";
+import { inspectGa4, inspectGtm, inspectMeta, inspectSegment } from "@/lib/service";
 import { assertSafeUrl } from "@/lib/url-safety";
 
 export const dynamic = "force-dynamic";
 
 const Create = z.object({
-  kind: z.enum(["ga4", "gtm"]),
-  target: z.string().transform((value) => value.trim().toUpperCase()),
+  kind: z.enum(["ga4", "gtm", "meta", "segment"]),
+  target: z.string().transform(normalizeId),
   email: z.string().trim().toLowerCase().pipe(z.email()),
   webhook: z.string().trim().max(2000).optional().transform((value) => value || null),
 });
@@ -37,13 +37,14 @@ export async function POST(request: Request) {
   if (!parsed.success) return Response.json({ error: "Enter a valid email address." }, { status: 400 });
   const { kind, target, email, webhook } = parsed.data;
   const idType = idKind(target);
-  if ((kind === "gtm" && idType !== "GTM") || (kind === "ga4" && idType !== "GA4" && idType !== "GT")) return Response.json({ error: `${target} is not a valid ${kind === "gtm" ? "container" : "GA4"} ID.` }, { status: 400 });
+  const valid = kind === "gtm" ? idType === "GTM" : kind === "meta" ? idType === "META" : kind === "segment" ? idType === "SEGMENT" : idType === "GA4" || idType === "GT";
+  if (!valid) return Response.json({ error: `${target} is not a valid ${kind === "gtm" ? "container" : kind === "meta" ? "Meta Pixel" : kind === "segment" ? "Segment write key" : "GA4"} ID.` }, { status: 400 });
   try {
     if (webhook) {
       const url = await assertSafeUrl(webhook);
       if (url.protocol !== "https:") throw new Error("Webhook URLs must use https.");
     }
-    const baseline = kind === "gtm" ? (await inspectGtm(target)).model.id : (await inspectGa4(target)).model.measurementId;
+    const baseline = kind === "gtm" ? (await inspectGtm(target)).model.id : kind === "meta" ? (await inspectMeta(target)).model.pixelId : kind === "segment" ? (await inspectSegment(target)).model.writeKey : (await inspectGa4(target)).model.measurementId;
     const watch = createWatch({ id: randomUUID(), kind, target: baseline, email, webhook });
     return Response.json({ watch: { ...watch, webhook: watch.webhook ? "configured" : null } }, { status: 201 });
   } catch (error) {

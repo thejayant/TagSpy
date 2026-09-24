@@ -3,7 +3,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { envString } from "./env";
 
-export type TargetKind = "ga4" | "gtm";
+export type TargetKind = "ga4" | "gtm" | "meta" | "segment";
 
 // Installs created before the TagLens → TagSpy rename keep using their existing database file.
 const legacyPath = path.resolve(/* turbopackIgnore: true */ "./data/taglens.db");

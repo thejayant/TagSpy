@@ -1,10 +1,10 @@
 import { fetchPublic } from "./fetcher";
-import { findIds } from "./ids";
+import { findIds, findPixelIds, findSegmentKeys } from "./ids";
 import { safeFetch } from "./url-safety";
 
 export interface FoundId {
   id: string;
-  kind: "GTM" | "GA4" | "GT";
+  kind: "GTM" | "GA4" | "GT" | "META" | "SEGMENT";
   via: string;
 }
 
@@ -41,9 +41,12 @@ function blockedMessage(response: Response, body: string): string {
  * Finds the GTM containers and Google tags a website loads, by reading its HTML and a few of its
  * first-party scripts. Every URL (including redirects) is checked against private/reserved networks.
  */
-export async function discoverIds(url: string, log: Log): Promise<FoundId[]> {
+export async function discoverIds(url: string, log: Log, want?: FoundId["kind"]): Promise<FoundId[]> {
   const found = new Map<string, FoundId>();
-  const add = (ids: ReturnType<typeof findIds>, via: string) => {
+  const add = (text: string, via: string) => {
+    const ids = findIds(text);
+    for (const id of findSegmentKeys(text)) if (!found.has(id)) found.set(id, { id, kind: "SEGMENT", via });
+    for (const id of findPixelIds(text)) if (!found.has(id)) found.set(id, { id, kind: "META", via });
     for (const id of ids.gtm) if (!found.has(id)) found.set(id, { id, kind: "GTM", via });
     for (const id of ids.ga4) if (!found.has(id)) found.set(id, { id, kind: "GA4", via });
     for (const id of ids.gt) if (!found.has(id)) found.set(id, { id, kind: "GT", via });
@@ -55,19 +58,21 @@ export async function discoverIds(url: string, log: Log): Promise<FoundId[]> {
   const finalUrl = page.finalUrl;
   if (finalUrl !== url) log(`Redirected to ${finalUrl}`);
   log(`Read ${Math.round(page.body.length / 1024)} KB of HTML`);
-  add(findIds(page.body), "page HTML");
+  add(page.body, "page HTML");
 
-  if (!found.size) {
+  // Scan first-party scripts when the page itself has nothing, or not the kind of ID being looked for
+  // (Segment write keys usually live in bundled JavaScript rather than the HTML).
+  if (!found.size || (want && ![...found.values()].some((item) => item.kind === want))) {
     const origin = new URL(finalUrl);
     const scripts = [...page.body.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)]
       .map((match) => { try { return new URL(match[1], finalUrl); } catch { return null; } })
       .filter((item): item is URL => !!item && item.hostname.endsWith(origin.hostname.replace(/^www\./, "")))
-      .slice(0, 6);
+      .slice(0, want === "SEGMENT" ? 10 : 6);
     for (const script of scripts) {
       try {
         log(`Scanning script ${script.pathname}`);
         const result = await safeFetch(script.toString(), { headers: HEADERS, signal: AbortSignal.timeout(10_000) }, { redirects: 3, bytes: SCRIPT_BYTES });
-        add(findIds(result.body), `script ${script.pathname}`);
+        add(result.body, `script ${script.pathname}`);
       } catch {
         /* one unreachable script should not stop discovery */
       }
@@ -83,6 +88,8 @@ export function idsFromSource(html: string, via = "pasted page source"): FoundId
     ...ids.gtm.map((id) => ({ id, kind: "GTM" as const, via })),
     ...ids.ga4.map((id) => ({ id, kind: "GA4" as const, via })),
     ...ids.gt.map((id) => ({ id, kind: "GT" as const, via })),
+    ...findPixelIds(html).map((id) => ({ id, kind: "META" as const, via })),
+    ...findSegmentKeys(html).map((id) => ({ id, kind: "SEGMENT" as const, via })),
   ];
 }
 
@@ -95,6 +102,36 @@ export async function ga4IdsFromContainers(containers: string[], log: Log): Prom
       const resource = await fetchPublic("gtm", id);
       const matches = [...resource.source.matchAll(/"vtp_(?:tagId|measurementIdOverride|measurementId)"\s*:\s*"(G-[A-Z0-9]{6,15})"/g)].map((match) => match[1]);
       for (const ga4 of new Set(matches)) output.push({ id: ga4, kind: "GA4", via: `container ${id}` });
+    } catch (error) {
+      log(`Could not read ${id}: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  }
+  return output;
+}
+
+/** Meta Pixel IDs loaded by GTM containers (Custom HTML fbq('init', …) and Meta Pixel template tags). */
+export async function pixelIdsFromContainers(containers: string[], log: Log): Promise<FoundId[]> {
+  const output: FoundId[] = [];
+  for (const id of containers.slice(0, 4)) {
+    try {
+      log(`Opening container ${id} to look for Meta Pixel tags`);
+      const resource = await fetchPublic("gtm", id);
+      for (const pixel of findPixelIds(resource.source)) output.push({ id: pixel, kind: "META", via: `container ${id}` });
+    } catch (error) {
+      log(`Could not read ${id}: ${error instanceof Error ? error.message : "unknown error"}`);
+    }
+  }
+  return output;
+}
+
+/** Segment write keys loaded by GTM containers (Custom HTML snippets). */
+export async function segmentKeysFromContainers(containers: string[], log: Log): Promise<FoundId[]> {
+  const output: FoundId[] = [];
+  for (const id of containers.slice(0, 4)) {
+    try {
+      log(`Opening container ${id} to look for a Segment snippet`);
+      const resource = await fetchPublic("gtm", id);
+      for (const key of findSegmentKeys(resource.source)) output.push({ id: key, kind: "SEGMENT", via: `container ${id}` });
     } catch (error) {
       log(`Could not read ${id}: ${error instanceof Error ? error.message : "unknown error"}`);
     }

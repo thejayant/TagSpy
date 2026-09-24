@@ -1,10 +1,14 @@
 import { insertChange, listWatches, markWatchChecked, snapshotData, upsertSnapshot, type TargetKind } from "./db";
-import { contentHash, diffGa4, diffGtm, type DiffEntry } from "./diff";
-import { fetchPublic } from "./fetcher";
+import { contentHash, diffGa4, diffGtm, diffMeta, diffSegment, type DiffEntry } from "./diff";
+import { fetchMetaConfig, fetchPublic, fetchSegmentSettings } from "./fetcher";
 import { parseGa4 } from "./ga4/parse";
 import type { Ga4Report } from "./ga4/types";
 import { parseGtm } from "./gtm/parse";
 import type { GtmContainer } from "./gtm/types";
+import { parseMetaPixel } from "./meta/parse";
+import type { MetaPixelReport } from "./meta/types";
+import { parseSegmentSettings } from "./segment/parse";
+import type { SegmentReport } from "./segment/types";
 import { deliver } from "./notify";
 
 export interface Inspection<T> {
@@ -14,12 +18,15 @@ export interface Inspection<T> {
   changes: DiffEntry[];
 }
 
-async function record<T extends Ga4Report | GtmContainer>(kind: TargetKind, target: string, model: T, version: string | undefined): Promise<{ snapshotId: number; changes: DiffEntry[] }> {
+async function record<T extends Ga4Report | GtmContainer | MetaPixelReport | SegmentReport>(kind: TargetKind, target: string, model: T, version: string | undefined): Promise<{ snapshotId: number; changes: DiffEntry[] }> {
   const { snapshot, previous } = upsertSnapshot(kind, target, version, contentHash(model), model.fetchedAt, model);
   if (!previous) return { snapshotId: snapshot.id, changes: [] };
   const before = snapshotData<T>(previous.id)?.data;
   if (!before) return { snapshotId: snapshot.id, changes: [] };
-  const changes = kind === "gtm" ? diffGtm(before as GtmContainer, model as GtmContainer) : diffGa4(before as Ga4Report, model as Ga4Report);
+  const changes = kind === "gtm" ? diffGtm(before as GtmContainer, model as GtmContainer)
+    : kind === "meta" ? diffMeta(before as MetaPixelReport, model as MetaPixelReport)
+    : kind === "segment" ? diffSegment(before as SegmentReport, model as SegmentReport)
+    : diffGa4(before as Ga4Report, model as Ga4Report);
   if (!changes.length) return { snapshotId: snapshot.id, changes };
   const change = insertChange(kind, target, previous, snapshot, changes);
   const watchers = listWatches({ kind, target });
@@ -43,10 +50,26 @@ export async function inspectGtm(id: string, options: { fresh?: boolean } = {}):
   return { model, source: resource.source, ...recorded };
 }
 
+export async function inspectMeta(id: string, options: { fresh?: boolean } = {}): Promise<Inspection<MetaPixelReport>> {
+  const resource = await fetchMetaConfig(id, options);
+  const model = parseMetaPixel(resource.source, id, resource.url);
+  model.fetchedAt = resource.fetchedAt;
+  const recorded = await record("meta", model.pixelId, model, undefined);
+  return { model, source: resource.source, ...recorded };
+}
+
+export async function inspectSegment(key: string, options: { fresh?: boolean } = {}): Promise<Inspection<SegmentReport>> {
+  const resource = await fetchSegmentSettings(key, options);
+  const model = parseSegmentSettings(resource.source, resource.id, resource.url);
+  model.fetchedAt = resource.fetchedAt;
+  const recorded = await record("segment", model.writeKey, model, model.library.version ?? undefined);
+  return { model, source: resource.source, ...recorded };
+}
+
 /** Re-reads a watched target and notifies watchers when its content changed. */
 export async function checkTarget(kind: TargetKind, target: string): Promise<{ changed: boolean; changes: DiffEntry[] }> {
   try {
-    const result = kind === "gtm" ? await inspectGtm(target, { fresh: true }) : await inspectGa4(target, { fresh: true });
+    const result = kind === "gtm" ? await inspectGtm(target, { fresh: true }) : kind === "meta" ? await inspectMeta(target, { fresh: true }) : kind === "segment" ? await inspectSegment(target, { fresh: true }) : await inspectGa4(target, { fresh: true });
     markWatchChecked(kind, target, result.changes.length ? "changed" : "ok");
     return { changed: result.changes.length > 0, changes: result.changes };
   } catch (error) {

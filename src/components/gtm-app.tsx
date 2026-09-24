@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { formatBytes } from "@/lib/compiled";
-import type { GtmContainer, TypeCount } from "@/lib/gtm/types";
-import { Icon, SiteFooter, SiteHeader, formatDateTime, useShare } from "./chrome";
+import { primaryId, tagHeadline } from "@/lib/gtm/present";
+import type { GtmContainer, GtmTag, TypeCount } from "@/lib/gtm/types";
+import { Icon, ProductGlyph, RelatedLinks, SiteFooter, SiteHeader, formatDateTime, useShare, useSiteContext } from "./chrome";
 import { GtmDrawer, TagIcon, TriggerIcon, VariableIcon, type DrawerItem } from "./gtm-drawer";
 import { DiffList, HistoryPanel } from "./history";
 import { SearchPanel, useInspect } from "./inspect";
@@ -83,6 +84,13 @@ function Workspace({ container: c, changes, refreshing, initialView, onRefresh, 
   const go = (next: View, flag: Flag = null) => { setView(next); setStack([]); setPreset((current) => ({ flag, at: current.at + 1 })); };
   const selectedId = stack[stack.length - 1]?.id;
   const docked = wide && stack.length > 0;
+  const context = useSiteContext();
+  // GA4 properties and Meta pixels this container sends data to, then other containers found on the same site.
+  const related = useMemo(() => [
+    ...[...new Set(c.tags.flatMap((tag) => tag.ids).filter((id) => /^G-/.test(id)))].map((id) => ({ kind: "ga4" as const, id })),
+    ...[...new Set(c.tags.filter((tag) => tag.vendor === "Meta Pixel" || tag.group === "Meta Pixel").flatMap((tag) => tag.ids).filter((id) => /^\d{10,20}$/.test(id)))].map((id) => ({ kind: "meta" as const, id })),
+    ...(context.gtm.includes(c.id) ? [...context.segment.map((id) => ({ kind: "segment" as const, id })), ...context.gtm.filter((id) => id !== c.id).map((id) => ({ kind: "gtm" as const, id }))] : []),
+  ].slice(0, 8), [c, context]);
 
   const nav: Array<[View, string, string, number | null, string]> = [
     ["overview", "Overview", "space_dashboard", null, "g-gray"],
@@ -98,7 +106,7 @@ function Workspace({ container: c, changes, refreshing, initialView, onRefresh, 
       <div className={`app ${docked ? "with-inspector" : ""}`}>
         <aside className="sidebar" aria-label="Container">
           <div className="sidebar-card">
-            <span className="app-icon g-blue"><Icon name="deployed_code" fill /></span>
+            <ProductGlyph kind="gtm" size="large" />
             <div>
               <strong className="mono">{c.id}</strong>
               <small>Version {c.version ?? "?"} · {formatBytes(c.weightBytes)}</small>
@@ -111,6 +119,7 @@ function Workspace({ container: c, changes, refreshing, initialView, onRefresh, 
               </button>
             ))}
           </nav>
+          <RelatedLinks title="Switch to" items={related} />
           <div className="source-title">Actions</div>
           <nav className="source-list plain">
             <button type="button" onClick={() => setWatching(true)}><Icon name="notifications" /> Follow container</button>
@@ -237,6 +246,21 @@ const matches = (query: string, ...fields: (string | undefined)[]) => {
 
 /* ── Tags ───────────────────────────────────────────────────────────── */
 
+/** "Google Analytics: GA4 Event" → "GA4 Event": the vendor is already shown by the logo and group. */
+const shortType = (type: string) => type.replace(/^Google Analytics: /, "");
+
+/** Groups tags by destination (vendor or product): busiest live group first, active tags before paused ones. */
+function groupTags(tags: GtmTag[]) {
+  const groups = new Map<string, GtmTag[]>();
+  for (const tag of tags) {
+    const name = tag.vendor ?? tag.group;
+    groups.set(name, [...(groups.get(name) ?? []), tag]);
+  }
+  return [...groups]
+    .map(([name, items]) => ({ name, tags: [...items.filter((tag) => !tag.paused), ...items.filter((tag) => tag.paused)], paused: items.filter((tag) => tag.paused).length }))
+    .sort((a, b) => (b.tags.length - b.paused) - (a.tags.length - a.paused) || b.tags.length - a.tags.length);
+}
+
 function TagList({ c, flag, open, selectedId }: { c: GtmContainer; flag: Flag; open: (item: DrawerItem) => void; selectedId?: string }) {
   const state = useListState(flag === "paused" || flag === "noTrigger" ? flag : null);
   const triggerById = useMemo(() => new Map(c.triggers.map((trigger) => [trigger.id, trigger])), [c.triggers]);
@@ -248,17 +272,37 @@ function TagList({ c, flag, open, selectedId }: { c: GtmContainer; flag: Flag; o
       <Toolbar title="Tags" subtitle={`${rows.length} of ${c.tags.length} · ${c.stats.active} active, ${c.stats.paused} paused`}>
         <ListTools state={state} noun="tags" allTypes={c.stats.tagsByType} scopes={[[null, "All"], ["active", "Active"], ["paused", "Paused"], ["noTrigger", "No trigger"]]} />
       </Toolbar>
-      <div className="rows">
-        {rows.slice(0, state.limit).map((tag) => {
-          const first = tag.firingTriggers[0] ? triggerById.get(tag.firingTriggers[0])?.name : undefined;
-          return (
-            <Cell key={tag.id} selected={selectedId === tag.id} onClick={() => open({ kind: "tag", id: tag.id })} icon={<TagIcon tag={tag} />} title={tag.name}
-              subtitle={<>{tag.vendor ?? tag.type}{first && <> · {first}{tag.firingTriggers.length > 1 ? ` +${tag.firingTriggers.length - 1}` : ""}</>}</>}
-              badge={tag.paused ? <span className="pill pill-gray">Paused</span> : undefined} />
-          );
-        })}
-        {!rows.length && <Empty text="No tags match." />}
-      </div>
+      {groupTags(rows.slice(0, state.limit)).map(({ name, tags, paused }) => (
+        <section className="tag-group" key={name} aria-label={name}>
+          <header className="tag-group-head">
+            <TagIcon tag={tags[0]} size="xs" />
+            <h3>{name}</h3>
+            <span className="tag-group-count">{tags.length}{paused ? ` · ${paused} paused` : ""}</span>
+          </header>
+          <div className="rows">
+            {tags.map((tag) => {
+              const first = tag.firingTriggers[0] ? triggerById.get(tag.firingTriggers[0]) : undefined;
+              const id = primaryId(tag);
+              return (
+                <button type="button" key={tag.id} className={`row-cell tag-row ${selectedId === tag.id ? "selected" : ""} ${tag.paused ? "is-paused" : ""}`} aria-pressed={selectedId === tag.id} onClick={() => open({ kind: "tag", id: tag.id })}>
+                  <TagIcon tag={tag} />
+                  <span className="cell-text">
+                    <strong>{tagHeadline(tag, first?.name)}</strong>
+                    <small>
+                      <span className="tag-type">{shortType(tag.type)}</span>
+                      {first ? <span className="tag-trigger"><Icon name="bolt" fill className="xs" />{first.name}{tag.firingTriggers.length > 1 && <em>+{tag.firingTriggers.length - 1}</em>}</span> : <span className="tag-trigger none">No trigger</span>}
+                    </small>
+                  </span>
+                  {id && <code className="id-chip">{id}</code>}
+                  <span className={`status-dot ${tag.paused ? "paused" : "live"}`} title={tag.paused ? "Paused" : "Active"}><span className="visually-hidden">{tag.paused ? "Paused" : "Active"}</span></span>
+                  <Icon name="chevron_right" className="chev" />
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+      {!rows.length && <div className="rows"><Empty text="No tags match." /></div>}
       <More shown={Math.min(state.limit, rows.length)} total={rows.length} onMore={() => state.setLimit(Infinity)} />
     </>
   );
@@ -371,7 +415,7 @@ function Overview({ c, go, open }: { c: GtmContainer; go: (view: View, flag?: Fl
         <div className="dest-grid">
           {c.destinations.map((group) => (
             <div className="dest-card" key={group.name}>
-              <header><TagIcon tag={{ icon: group.icon }} /><div><strong>{group.name}</strong><small>{group.tagCount} tag{group.tagCount === 1 ? "" : "s"}{group.pausedCount ? ` · ${group.pausedCount} paused` : ""}</small></div></header>
+              <header><TagIcon tag={{ icon: group.icon, group: group.name }} /><div><strong>{group.name}</strong><small>{group.tagCount} tag{group.tagCount === 1 ? "" : "s"}{group.pausedCount ? ` · ${group.pausedCount} paused` : ""}</small></div></header>
               {group.ids.length ? group.ids.map((item) => <div className="kv-line" key={item.id}><span>{item.label}</span><code>{item.id}</code></div>) : <p className="muted small">No fixed ID published</p>}
               {group.ids.length > 0 && group.tagsWithoutId > 0 && <p className="muted small">+{group.tagsWithoutId} tag{group.tagsWithoutId === 1 ? "" : "s"} without a published ID</p>}
               <div className="dest-tags">
@@ -384,7 +428,7 @@ function Overview({ c, go, open }: { c: GtmContainer; go: (view: View, flag?: Fl
       </section>
 
       <div className="columns-3">
-        <TypeBars title="Tags by type" items={s.tagsByType} icon={(item) => <TagIcon tag={{ icon: item.icon }} />} />
+        <TypeBars title="Tags by type" items={s.tagsByType} icon={(item) => <TagIcon tag={{ icon: item.icon, type: item.type }} />} />
         <TypeBars title="Triggers by type" items={s.triggersByType} icon={(item) => <TriggerIcon icon={item.icon} />} />
         <TypeBars title="Variables by type" items={s.variablesByType} icon={(item) => <VariableIcon icon={item.icon} />} />
       </div>
