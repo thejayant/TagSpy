@@ -9,6 +9,8 @@ const legacyPath = path.resolve(/* turbopackIgnore: true */ "./data/taglens.db")
 const defaultPath = path.resolve(/* turbopackIgnore: true */ "./data/tagspy.db");
 const dbPath = process.env.DATABASE_PATH
   ? path.resolve(/* turbopackIgnore: true */ process.env.DATABASE_PATH)
+  // Vercel functions run from a read-only /var/task; /tmp is the only writable (and per-instance, ephemeral) location.
+  : process.env.VERCEL ? "/tmp/tagspy.db"
   : !fs.existsSync(defaultPath) && fs.existsSync(legacyPath) ? legacyPath : defaultPath;
 fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
