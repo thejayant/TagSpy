@@ -25,7 +25,7 @@ if (typeof window !== "undefined") gsap.registerPlugin(ScrollTrigger);
 const REVEAL = [
   ".score-card", ".tiles > .tile", ".group", ".related", ".note", ".insights > *", ".stack-cat", ".font-card", ".event-card",
   ".dest-card", ".watch-card", ".promo", ".unblock", ".paste", ".alert-card", ".table-wrap", ".guide-head", ".guide-card",
-  ".guide-step", ".guide-faq details", ".guide-links a", ".home-tool", ".home-proof > *", ".story-card", ".mq",
+  ".guide-step", ".guide-faq details", ".guide-links a", ".home-tool", ".home-proof > *", ".story-card", ".mq", ".support-nudge", ".support-section",
 ].join(", ");
 const COUNT = ".tile strong, .score-ring strong, [data-countup]";
 const SKIP = ".aid, .sheet, .sheet-backdrop, .inspector, .story.pinned, [data-motion='off']";

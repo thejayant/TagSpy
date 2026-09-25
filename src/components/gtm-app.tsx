@@ -3,11 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { formatBytes } from "@/lib/compiled";
 import { primaryId, tagHeadline } from "@/lib/gtm/present";
+import { SUPPORT_URL } from "@/lib/features";
 import type { GtmContainer, GtmTag, TypeCount } from "@/lib/gtm/types";
 import { Icon, ProductGlyph, RelatedLinks, SiteFooter, SiteHeader, formatDateTime, useShare, useSiteContext, SoonBadge } from "./chrome";
 import { GtmDrawer, TagIcon, TriggerIcon, VariableIcon, type DrawerItem } from "./gtm-drawer";
 import { DiffList, HistoryPanel } from "./history";
 import { SearchPanel, useInspect } from "./inspect";
+import { SupportNudge } from "./support";
 import { useToast } from "./toast";
 import { WatchDialog } from "./watch-dialog";
 
@@ -128,6 +130,7 @@ function Workspace({ container: c, changes, refreshing, initialView, onRefresh, 
             <a href={`/api/gtm/${encodeURIComponent(c.id)}/export`} download><Icon name="download" /> Export import file</a>
             <button type="button" onClick={() => share(`${window.location.origin}/gtm?id=${encodeURIComponent(c.id)}`, `${c.id} GTM container`)}><Icon name="ios_share" /> Share link</button>
             <button type="button" onClick={onBack}><Icon name="search" /> Open another</button>
+            <a href={SUPPORT_URL} target="_blank" rel="noopener"><Icon name="coffee" /> Buy me a coffee</a>
           </nav>
           <p className="sidebar-foot">Read {formatDateTime(c.fetchedAt)}. Google only publishes the live version of a container.</p>
         </aside>
@@ -140,6 +143,7 @@ function Workspace({ container: c, changes, refreshing, initialView, onRefresh, 
             </section>
           )}
           {view === "overview" && <Overview c={c} go={go} open={openFromList} />}
+          {view === "overview" && <SupportNudge tool="gtm" />}
           {view === "tags" && <TagList key={`t${preset.at}`} c={c} flag={preset.flag} open={openFromList} selectedId={selectedId} />}
           {view === "triggers" && <TriggerList key={`r${preset.at}`} c={c} flag={preset.flag} open={openFromList} selectedId={selectedId} />}
           {view === "variables" && <VariableList key={`v${preset.at}`} c={c} flag={preset.flag} open={openFromList} selectedId={selectedId} />}

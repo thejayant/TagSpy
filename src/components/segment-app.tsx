@@ -5,6 +5,7 @@ import type { SegmentReport as Report } from "@/lib/segment/types";
 import { Icon, RelatedLinks, SiteFooter, SiteHeader, useShare, useSiteContext } from "./chrome";
 import { DiffList, HistoryPanel } from "./history";
 import { SearchPanel, useInspect } from "./inspect";
+import { SupportNudge } from "./support";
 import { SegmentReport } from "./segment-report";
 import { Sheet } from "./sheet";
 import { WatchBanner, WatchDialog } from "./watch-dialog";
@@ -73,6 +74,7 @@ export function SegmentApp({ initialId, guide }: { initialId?: string; guide?: R
                 </div>
               </section>
               <WatchBanner kind="segment" target={report.writeKey} variant="bottom" onWatch={() => setWatching(true)} />
+              <SupportNudge tool="segment" />
             </>
           )}
           {guide}

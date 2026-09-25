@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { JetBrains_Mono, Manrope, Sora, Unbounded } from "next/font/google";
+import { Cookie, JetBrains_Mono, Manrope, Sora, Unbounded } from "next/font/google";
 import { MotionRoot } from "@/components/motion";
 import { OmniboxPalette } from "@/components/omnibox";
 import { ToastProvider } from "@/components/toast";
@@ -11,6 +11,8 @@ const brand = Unbounded({ subsets: ["latin"], weight: ["600", "800"], variable: 
 const display = Sora({ subsets: ["latin"], variable: "--font-display", display: "swap" });
 const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "swap" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
+// Cookie: the script face of the Buy Me a Coffee button.
+const cookie = Cookie({ subsets: ["latin"], weight: "400", variable: "--font-cookie", display: "swap" });
 
 export const metadata: Metadata = {
   // Resolves relative canonical and Open Graph URLs.
@@ -35,7 +37,7 @@ const MOTION_BOOT = `try{if(!matchMedia("(prefers-reduced-motion: reduce)").matc
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     // suppressHydrationWarning: the script below adds a class to <html> before React hydrates.
-    <html lang="en" className={`${brand.variable} ${display.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${brand.variable} ${display.variable} ${sans.variable} ${mono.variable} ${cookie.variable}`} suppressHydrationWarning>
       <head>
         {/* Enables the CSS hero intro before the first paint (see MOTION_BOOT). */}
         <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT }} />

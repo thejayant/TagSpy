@@ -5,6 +5,7 @@ import type { MetaPixelReport as Report } from "@/lib/meta/types";
 import { Icon, RelatedLinks, SiteFooter, SiteHeader, useShare, useSiteContext } from "./chrome";
 import { DiffList, HistoryPanel } from "./history";
 import { SearchPanel, useInspect } from "./inspect";
+import { SupportNudge } from "./support";
 import { MetaReport } from "./meta-report";
 import { Sheet } from "./sheet";
 import { WatchBanner, WatchDialog } from "./watch-dialog";
@@ -71,6 +72,7 @@ export function MetaApp({ initialId, guide }: { initialId?: string; guide?: Reac
                 </div>
               </section>
               <WatchBanner kind="meta" target={report.pixelId} variant="bottom" onWatch={() => setWatching(true)} />
+              <SupportNudge tool="meta" />
             </>
           )}
           {guide}

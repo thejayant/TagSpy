@@ -7,6 +7,7 @@ import { Story } from "@/components/home/story";
 import { XrayStage } from "@/components/home/xray";
 import { Omnibox } from "@/components/omnibox";
 import { SeoGuide, StructuredData } from "@/components/seo-guide";
+import { SupportSection } from "@/components/support";
 import { GUIDES, TOOL_ORDER, guideMetadata } from "@/lib/seo";
 
 export const metadata: Metadata = guideMetadata("home");
@@ -97,6 +98,8 @@ export default function Home() {
             <div><strong data-countup>16</strong><span>AI builders and agents detected</span></div>
             <div><strong>0</strong><span>logins, installs or stored scans</span></div>
           </section>
+
+          <SupportSection />
 
           <SeoGuide slug="home" />
         </div>

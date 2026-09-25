@@ -13,6 +13,7 @@ import type { AiEvidence, AiReport, AiTier, AiTool, AiToolId } from "@/lib/ai/ty
 import { SUPPORT_URL } from "@/lib/features";
 import { Icon, SiteFooter, SiteHeader } from "./chrome";
 import { ToolLinks } from "./seo-guide";
+import { CoffeeButton } from "./support";
 import { useToast } from "./toast";
 
 if (typeof window !== "undefined") gsap.registerPlugin(useGSAP, SplitText, ScrambleTextPlugin, ScrollTrigger);
@@ -454,9 +455,9 @@ function SupportCard() {
       <span className="aid-support-glyph"><Icon name="favorite" fill /></span>
       <div>
         <h3>Want to check another website?</h3>
-        <p>You&rsquo;ve used your free check. Every check runs a real browser in the cloud, and that costs money, so each person gets one. Support TagSpy to help raise the limit for everyone.</p>
+        <p>You&rsquo;ve used your free check. Every check runs a real browser in the cloud, and that costs money, so each person gets one. A coffee pays for those browsers and helps raise the limit for everyone.</p>
       </div>
-      <a className="btn btn-primary btn-lg" href={SUPPORT_URL} target="_blank" rel="noopener"><Icon name="volunteer_activism" /> Support this project</a>
+      <CoffeeButton size="lg" />
     </aside>
   );
 }

@@ -7,6 +7,7 @@ import { SiteFooter, SiteHeader, useShare } from "./chrome";
 import { DiffList, HistoryPanel } from "./history";
 import { SearchPanel, useInspect } from "./inspect";
 import { Sheet } from "./sheet";
+import { SupportNudge } from "./support";
 import { SiteCompare } from "./site-compare";
 import { DeepScanCard, SiteReport, type DeepScan } from "./site-report";
 import { WatchDialog } from "./watch-dialog";
@@ -96,6 +97,7 @@ export function SiteApp({ initialUrl, initialVs, guide }: { initialUrl?: string;
                 onWatch={report.source === "url" ? () => setWatching(true) : undefined}
                 onHistory={report.source === "url" ? () => setHistory(true) : undefined}
                 onCompare={report.source === "url" ? (other) => router.push(`/site?url=${encodeURIComponent(address(report))}&vs=${encodeURIComponent(other)}`) : undefined} />
+              {report.source === "url" && <SupportNudge tool="site" />}
             </>
           )}
           {guide}

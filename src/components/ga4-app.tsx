@@ -6,6 +6,7 @@ import { Icon, RelatedLinks, SiteFooter, SiteHeader, useShare, useSiteContext } 
 import { Ga4Report } from "./ga4-report";
 import { DiffList, HistoryPanel } from "./history";
 import { SearchPanel, useInspect } from "./inspect";
+import { SupportNudge } from "./support";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
 import { WatchBanner, WatchDialog } from "./watch-dialog";
@@ -73,6 +74,7 @@ export function Ga4App({ initialId, guide }: { initialId?: string; guide?: React
                 </div>
               </section>
               <WatchBanner kind="ga4" target={report.measurementId} variant="bottom" onWatch={() => setWatching(true)} />
+              <SupportNudge tool="ga4" />
             </>
           )}
           {guide}

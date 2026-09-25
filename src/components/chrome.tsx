@@ -6,6 +6,7 @@ import { useMemo, useSyncExternalStore } from "react";
 import { brandByName, type Brand } from "@/lib/brands";
 import { parseContext, readRaw, subscribe, type ContextMode, type SiteContext } from "@/lib/site-context";
 import { FOLLOW_ENABLED } from "@/lib/features";
+import { CoffeeButton } from "./support";
 import { useToast } from "./toast";
 
 export const AUTHOR_URL = "https://thejayant.in";
@@ -120,6 +121,7 @@ export function SiteFooter() {
       <div className="footer-inner">
         <Wordmark size="sm" />
         <p>TagSpy reads only public responses: the configuration Google, Meta and Segment serve to every visitor, and the HTML, code and fonts a website sends to any browser. Nothing is executed, and no account access is used.</p>
+        <div className="footer-support"><span>TagSpy is free, ad-free and independent.</span><CoffeeButton size="sm" /></div>
         <div className="footer-row">
           <nav aria-label="Footer">
             <Link href="/ga4">GA4</Link><span>|</span><Link href="/gtm">Tag Manager</Link><span>|</span><Link href="/meta">Meta</Link><span>|</span><Link href="/segment">Segment</Link><span>|</span><Link href="/site">Site DNA</Link><span>|</span><Link href="/ai-website-detector">AI Website Detector</Link><span>|</span><Link href="/alerts">Alerts</Link>
