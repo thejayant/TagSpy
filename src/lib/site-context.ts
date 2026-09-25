@@ -1,6 +1,7 @@
 /**
  * What the visitor is currently investigating, shared between the GA4, Tag Manager, Meta Pixel and Segment pages so switching
- * modes carries the site and the IDs found so far. Kept per browser tab in sessionStorage.
+ * modes carries the site and the IDs found so far. Kept per browser tab in sessionStorage, which the browser erases when
+ * the tab is closed (switching tabs or reloading keeps it).
  */
 import { ID_PATTERNS, normalizeId } from "./ids";
 

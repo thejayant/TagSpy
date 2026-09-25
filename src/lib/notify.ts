@@ -5,7 +5,7 @@ import { appUrl, envString } from "./env";
 import { assertSafeUrl } from "./url-safety";
 
 export function describeChange(change: ChangeRow, entries: DiffEntry[]): { subject: string; text: string; link: string } {
-  const link = `${appUrl()}/${change.kind}?id=${encodeURIComponent(change.target)}`;
+  const link = change.kind === "site" ? `${appUrl()}/site?url=${encodeURIComponent(change.target)}` : `${appUrl()}/${change.kind}?id=${encodeURIComponent(change.target)}`;
   const version = change.kind === "gtm" && change.to_version ? ` (v${change.from_version ?? "?"} → v${change.to_version})` : "";
   const subject = `${change.target} changed${version}`;
   const lines = entries.slice(0, 25).map((entry) => `• [${entry.area}] ${entry.change} ${entry.label}${entry.detail ? ` — ${entry.detail}` : ""}`);
@@ -40,16 +40,16 @@ export async function deliver(watch: WatchRow, change: ChangeRow, entries: DiffE
   const message = describeChange(change, entries);
   try {
     const status = await sendEmail(watch.email, message.subject, message.text);
-    recordNotification(watch.id, change.id, "email", status, status === "skipped" ? "SMTP_URL is not configured" : undefined);
+    await recordNotification(watch.id, change.id, "email", status, status === "skipped" ? "SMTP_URL is not configured" : undefined);
   } catch (error) {
-    recordNotification(watch.id, change.id, "email", "failed", error instanceof Error ? error.message : String(error));
+    await recordNotification(watch.id, change.id, "email", "failed", error instanceof Error ? error.message : String(error));
   }
   if (watch.webhook) {
     try {
       await sendWebhook(watch.webhook, { text: message.text, target: change.target, kind: change.kind, fromVersion: change.from_version, toVersion: change.to_version, link: message.link, changes: entries });
-      recordNotification(watch.id, change.id, "webhook", "sent");
+      await recordNotification(watch.id, change.id, "webhook", "sent");
     } catch (error) {
-      recordNotification(watch.id, change.id, "webhook", "failed", error instanceof Error ? error.message : String(error));
+      await recordNotification(watch.id, change.id, "webhook", "failed", error instanceof Error ? error.message : String(error));
     }
   }
 }

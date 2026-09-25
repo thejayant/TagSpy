@@ -6,7 +6,7 @@ import { formatBytes } from "@/lib/compiled";
 import { rememberIds, rememberInput } from "@/lib/site-context";
 import { Icon, ProductGlyph } from "./chrome";
 
-export type Mode = "ga4" | "gtm" | "meta" | "segment";
+export type Mode = "ga4" | "gtm" | "meta" | "segment" | "site";
 interface LogLine { text: string; level: "info" | "ok" | "warn" | "err"; at: string }
 interface Found { id: string; kind: string; via: string }
 
@@ -25,7 +25,8 @@ export interface InspectState<T> {
   error: string;
 }
 
-export function useInspect<T>(mode: Mode) {
+/** Streams an NDJSON inspection. `endpoint` lets Site DNA reuse this for deep scans (/api/site/deep). */
+export function useInspect<T>(mode: Mode, endpoint = "/api/inspect") {
   const [state, setState] = useState<InspectState<T>>({ status: "idle", logs: [], progress: 0, choices: [], result: null, error: "" });
   const abort = useRef<AbortController | null>(null);
 
@@ -36,14 +37,14 @@ export function useInspect<T>(mode: Mode) {
     abort.current = controller;
     if (options.source !== "html") rememberInput(input);
     const stamp = () => new Date().toLocaleTimeString();
-    const first = options.source === "html" ? "Reading the page source you pasted" : mode === "gtm" ? "Preparing to open the container" : "Preparing to read the Google tag";
+    const first = options.source === "html" ? "Reading the page source you pasted" : mode === "site" ? "Preparing to scan the website" : mode === "gtm" ? "Preparing to open the container" : "Preparing to read the Google tag";
     // The previous result stays visible while a refresh runs; it is cleared on error or when choices are offered.
     setState((current) => ({ status: "running", logs: [{ text: first, level: "info", at: stamp() }], progress: 8, choices: [], result: current.result, error: "" }));
     try {
-      const response = await fetch("/api/inspect", {
+      const response = await fetch(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(options.source === "html" ? { mode, html: input } : { mode, input, fresh: options.fresh }),
+        body: JSON.stringify(options.source === "html" ? { mode, html: input } : { mode, input, url: input, fresh: options.fresh }),
         signal: controller.signal,
       });
       if (!response.ok || !response.body) {
@@ -69,7 +70,8 @@ export function useInspect<T>(mode: Mode) {
           } else if (event.type === "found") rememberIds(event.ids);
           else if (event.type === "error") setState((current) => ({ ...current, status: "error", result: null, error: event.message, logs: [...current.logs, { text: event.message, level: "err", at: stamp() }], progress: 100 }));
           else if (event.type === "result") {
-            rememberIds([event.id, ...relatedIds(event.model)]);
+            // A site result is keyed by host name, which is not a tag ID (its tracking IDs arrive in the "found" event).
+            if (mode !== "site") rememberIds([event.id, ...relatedIds(event.model)]);
             setState((current) => ({ ...current, status: "done", result: { id: event.id, model: event.model, changes: event.changes }, logs: [...current.logs, { text: "Done", level: "ok", at: stamp() }], progress: 100 }));
           }
         }
@@ -79,11 +81,12 @@ export function useInspect<T>(mode: Mode) {
       if (controller.signal.aborted) return;
       setState((current) => ({ ...current, status: "error", result: null, error: error instanceof Error ? error.message : "Request failed", progress: 100 }));
     }
-  }, [mode]);
+  }, [mode, endpoint]);
 
+  // Cancelling stops the request (the server stops scanning too) and discards everything the scan produced.
   const cancel = useCallback(() => {
     abort.current?.abort();
-    setState((current) => ({ ...current, status: "idle", progress: 0 }));
+    setState({ status: "idle", logs: [], progress: 0, choices: [], result: null, error: "" });
   }, []);
 
   const reset = useCallback(() => setState({ status: "idle", logs: [], progress: 0, choices: [], result: null, error: "" }), []);
@@ -110,6 +113,12 @@ const COPY: Record<Mode, { eyebrow: string; title: string; sub: string; placehol
     sub: "Enter a pixel ID, a GTM container or any website. We read the pixel's public configuration: codeless events, advanced matching, server-side setup and every restriction.",
     placeholder: "Pixel ID, GTM-XXXXXXX or example.com",
   },
+  site: {
+    eyebrow: "Site DNA",
+    title: "See how any website is built.",
+    sub: "Enter a website. We read its HTML, JavaScript bundles, CSS, font files, headers and DNS to show the framework, motion stack, typography, design tokens and infrastructure behind it.",
+    placeholder: "example.com",
+  },
   segment: {
     eyebrow: "Segment",
     title: "Map any Segment stack.",
@@ -127,7 +136,7 @@ export function ModeSwitch({ mode }: { mode: Mode }) {
       <Link href={href("gtm")} className={mode === "gtm" ? "on" : ""} aria-current={mode === "gtm" ? "page" : undefined}>Tag Manager</Link>
       <Link href={href("meta")} className={mode === "meta" ? "on" : ""} aria-current={mode === "meta" ? "page" : undefined}>Meta Pixel</Link>
       <Link href={href("segment")} className={mode === "segment" ? "on" : ""} aria-current={mode === "segment" ? "page" : undefined}>Segment</Link>
-      <span aria-disabled="true" title="Firebase app inspection is not available yet">Apps <em>Soon</em></span>
+      <Link href={href("site")} className={mode === "site" ? "on" : ""} aria-current={mode === "site" ? "page" : undefined}>Site DNA</Link>
     </nav>
   );
 }
@@ -138,7 +147,7 @@ function shortError(text: string): string {
   return head.endsWith(".") ? head : `${head}.`;
 }
 
-function Steps({ logs, running, progress, onCancel }: { logs: LogLine[]; running: boolean; progress: number; onCancel: () => void }) {
+export function Steps({ logs, running, progress, onCancel }: { logs: LogLine[]; running: boolean; progress: number; onCancel: () => void }) {
   const shown = logs.slice(-6);
   return (
     <div className="steps" aria-live="polite">
@@ -224,7 +233,7 @@ export function SearchPanel<T>({ mode, value, onChange, onSubmit, inspect, onPic
           <p>{shortError(state.error)}</p>
           <p className="muted">Your browser can still open it. Copy the page source from there and paste it here — it takes about 30 seconds.</p>
           <button type="button" className="btn btn-primary btn-lg" onClick={openPaste}>Paste page source</button>
-          <p className="unblock-alt">Or enter the {mode === "gtm" ? "GTM-" : mode === "meta" ? "pixel" : mode === "segment" ? "write key" : "G-"} ID directly above.</p>
+          {mode !== "site" && <p className="unblock-alt">Or enter the {mode === "gtm" ? "GTM-" : mode === "meta" ? "pixel" : mode === "segment" ? "write key" : "G-"} ID directly above.</p>}
         </div>
       )}
       {pasteOpen && <PasteSourceBox mode={mode} siteUrl={siteUrl} source={source} onSource={setSource} running={running} onScan={scanSource} onClose={() => setPasteOpen(false)} />}
@@ -303,8 +312,8 @@ function PasteSourceBox({ mode, siteUrl, source, onSource, running, onScan, onCl
       <label className="visually-hidden" htmlFor={`paste-${mode}`}>Page source</label>
       <textarea id={`paste-${mode}`} value={source} onChange={(event) => onSource(event.target.value)} placeholder="<!DOCTYPE html>…" spellCheck={false} rows={5} />
       <footer>
-        <span className="muted">{source ? `${formatBytes(source.length)} · only tag IDs are read, nothing is stored` : "Only GTM-, G-, GT-, Meta Pixel IDs and Segment write keys are read. Nothing is stored."}</span>
-        <button type="button" className="btn btn-primary" disabled={!source.trim() || running} onClick={onScan}>Find IDs</button>
+        <span className="muted">{mode === "site" ? (source ? `${formatBytes(source.length)} · scanned for technologies, nothing is stored` : "The HTML is scanned for technologies, fonts and design tokens. Nothing is stored.") : source ? `${formatBytes(source.length)} · only tag IDs are read, nothing is stored` : "Only GTM-, G-, GT-, Meta Pixel IDs and Segment write keys are read. Nothing is stored."}</span>
+        <button type="button" className="btn btn-primary" disabled={!source.trim() || running} onClick={onScan}>{mode === "site" ? "Scan source" : "Find IDs"}</button>
       </footer>
     </section>
   );

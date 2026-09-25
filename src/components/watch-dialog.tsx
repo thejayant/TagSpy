@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { ContextMode } from "@/lib/site-context";
-import { Icon, KIND_NOUN } from "./chrome";
+import { FOLLOW_ENABLED, FOLLOW_PERKS } from "@/lib/features";
+import { Icon, KIND_NOUN, SoonBadge, type WatchKind } from "./chrome";
 import { Sheet } from "./sheet";
 import { useToast } from "./toast";
 
@@ -13,7 +13,31 @@ export function readSavedEmail(): string {
   try { return localStorage.getItem(EMAIL_KEY) ?? localStorage.getItem(LEGACY_EMAIL_KEY) ?? ""; } catch { return ""; }
 }
 
-export function WatchDialog({ kind, target, onClose }: { kind: ContextMode; target: string; onClose: () => void }) {
+/** What Follow will offer; shown in place of the form while Follow (a paid feature) is not available yet. */
+export function FollowComingSoon() {
+  return (
+    <div className="soon-panel">
+      <span className="soon-badge large">Paid feature · Coming soon</span>
+      <p>Follow is part of TagSpy&apos;s upcoming paid plan. It will include:</p>
+      <ul>{FOLLOW_PERKS.map((perk) => <li key={perk}><Icon name="check_circle" fill className="sm" /> {perk}</li>)}</ul>
+      <p className="muted small">Until then, nothing you scan is stored: every report lives only in your browser tab.</p>
+    </div>
+  );
+}
+
+export function WatchDialog(props: { kind: WatchKind; target: string; onClose: () => void }) {
+  if (!FOLLOW_ENABLED) {
+    return (
+      <Sheet title={`Follow ${props.target}`} subtitle="Change history and alerts" onClose={props.onClose}>
+        <FollowComingSoon />
+        <button type="button" className="btn btn-block" onClick={props.onClose}>Got it</button>
+      </Sheet>
+    );
+  }
+  return <FollowForm {...props} />;
+}
+
+function FollowForm({ kind, target, onClose }: { kind: WatchKind; target: string; onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [webhook, setWebhook] = useState("");
   const [busy, setBusy] = useState(false);
@@ -50,7 +74,7 @@ export function WatchDialog({ kind, target, onClose }: { kind: ContextMode; targ
   return (
     <Sheet title={`Follow ${target}`} subtitle={`Get notified when this ${noun} changes.`} onClose={onClose}>
       <form className="form" onSubmit={submit}>
-        <p className="muted">We re-read it every day and alert you only when the published configuration actually changes{kind === "gtm" ? ". Every version is kept so you can compare them." : "."}</p>
+        <p className="muted">We re-read it every day and alert you only when {kind === "site" ? "its stack, typefaces, palette or hosting" : "the published configuration"} actually changes{kind === "gtm" ? ". Every version is kept so you can compare them." : "."}</p>
         <div className="fields">
           <label className="field-row">
             <span>Email</span>
@@ -69,14 +93,14 @@ export function WatchDialog({ kind, target, onClose }: { kind: ContextMode; targ
   );
 }
 
-export function WatchBanner({ kind, target, onWatch }: { kind: ContextMode; target: string; variant?: "top" | "bottom"; onWatch: () => void }) {
+export function WatchBanner({ kind, target, onWatch }: { kind: WatchKind; target: string; variant?: "top" | "bottom"; onWatch: () => void }) {
   const noun = KIND_NOUN[kind];
   return (
     <section className="promo">
       <span className="promo-icon"><Icon name="notifications_active" fill /></span>
-      <h3>Know the moment it changes.</h3>
+      <h3>Know the moment it changes. <SoonBadge /></h3>
       <p>Follow {target} and we&apos;ll check this {noun} every day. Email by default — add Slack, Teams or a webhook anytime.</p>
-      <button type="button" className="btn btn-primary" onClick={onWatch}>Follow {noun}</button>
+      <button type="button" className="btn btn-primary" onClick={onWatch}>{FOLLOW_ENABLED ? `Follow ${noun}` : "See what's coming"}</button>
     </section>
   );
 }

@@ -3,7 +3,8 @@ import { ID_PATTERNS } from "./ids";
 
 const GOOGLE_HOST = "https://www.googletagmanager.com";
 const MAX_BYTES = envNumber("MAX_RESPONSE_BYTES", 6_000_000);
-const CACHE_MS = envNumber("CACHE_SECONDS", 300) * 1000;
+// Off by default: scan results are not kept on the server once a response is sent. CACHE_SECONDS>0 opts back in.
+const CACHE_MS = (Number(process.env.CACHE_SECONDS?.trim()) || 0) * 1000;
 const TIMEOUT_MS = 15_000;
 
 export interface PublicResource {
@@ -66,7 +67,7 @@ export async function fetchPublic(kind: "gtm" | "gtag", rawId: string, options: 
   const source = await readLimited(response);
   if (!source.includes("var data")) throw new NotPublishedError(`The response for ${id} does not contain a published configuration.`);
   const value: PublicResource = { id, url, source, fetchedAt: new Date().toISOString(), cached: false };
-  cache.set(key, { at: Date.now(), value });
+  if (CACHE_MS > 0) cache.set(key, { at: Date.now(), value });
   if (cache.size > 200) cache.delete(cache.keys().next().value!);
   return value;
 }
@@ -94,7 +95,7 @@ export async function fetchMetaConfig(rawId: string, options: { fresh?: boolean 
   if (!response.ok) throw new Error(`Meta responded with HTTP ${response.status} for pixel ${id}.`);
   const source = await readLimited(response);
   const value: PublicResource = { id, url, source, fetchedAt: new Date().toISOString(), cached: false };
-  cache.set(key, { at: Date.now(), value });
+  if (CACHE_MS > 0) cache.set(key, { at: Date.now(), value });
   if (cache.size > 200) cache.delete(cache.keys().next().value!);
   return value;
 }
@@ -122,7 +123,7 @@ export async function fetchSegmentSettings(rawKey: string, options: { fresh?: bo
   if (!response.ok) throw new Error(`Segment responded with HTTP ${response.status} for write key ${key}.`);
   const source = await readLimited(response);
   const value: PublicResource = { id: key, url, source, fetchedAt: new Date().toISOString(), cached: false };
-  cache.set(cacheKey, { at: Date.now(), value });
+  if (CACHE_MS > 0) cache.set(cacheKey, { at: Date.now(), value });
   if (cache.size > 200) cache.delete(cache.keys().next().value!);
   return value;
 }

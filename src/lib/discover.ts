@@ -21,7 +21,7 @@ const HEADERS = {
 const DIRECT_ID_HINT = "Enter the container or measurement ID directly instead (find it in the page source, or with Google Tag Assistant).";
 
 /** Explains non-OK page responses, recognizing bot-protection challenges we cannot (and should not) pass. */
-function blockedMessage(response: Response, body: string): string {
+export function blockedMessage(response: Response, body: string): string {
   const header = (name: string) => response.headers.get(name)?.toLowerCase() ?? "";
   const server = header("server");
   const vendor = header("cf-mitigated") || server.includes("cloudflare") || /just a moment|cf-chl|challenges\.cloudflare\.com/i.test(body) ? "Cloudflare"

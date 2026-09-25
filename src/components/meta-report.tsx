@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { CodelessRule, MetaFeature, MetaPixelReport as Report } from "@/lib/meta/types";
-import { Icon, ProductGlyph, formatDateTime } from "./chrome";
+import { Icon, ProductGlyph, formatDateTime, SoonBadge } from "./chrome";
 import { Row, Section } from "./ga4-report";
 import { CodeView } from "./gtm-drawer";
 import { Sheet } from "./sheet";
@@ -151,7 +151,7 @@ export function MetaReport({ report, onWatch, onShare, onRefresh, refreshing }: 
           </div>
         </div>
         <div className="summary-actions">
-          <button type="button" className="btn btn-primary" onClick={onWatch}><Icon name="notifications" fill className="sm" /> Follow</button>
+          <button type="button" className="btn btn-primary" onClick={onWatch}><Icon name="notifications" fill className="sm" /> Follow <SoonBadge /></button>
           <button type="button" className="btn" onClick={onRefresh} disabled={refreshing} aria-label="Refresh">{refreshing ? <span className="spinner" aria-hidden="true" /> : <Icon name="refresh" className="sm" />}</button>
           <button type="button" className="btn" onClick={onShare} aria-label="Share"><Icon name="ios_share" className="sm" /></button>
         </div>

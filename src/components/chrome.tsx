@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { useMemo, useSyncExternalStore } from "react";
 import { brandByName, type Brand } from "@/lib/brands";
 import { parseContext, readRaw, subscribe, type ContextMode, type SiteContext } from "@/lib/site-context";
+import { FOLLOW_ENABLED } from "@/lib/features";
 import { useToast } from "./toast";
 
 export const AUTHOR_URL = "https://thejayant.in";
@@ -14,8 +15,12 @@ export function Icon({ name, className = "", fill = false, title }: { name: stri
 }
 
 /** What each inspected thing is called in copy. */
-export const KIND_NOUN: Record<ContextMode, string> = { ga4: "property", gtm: "container", meta: "pixel", segment: "source" };
-export const KIND_LABEL: Record<ContextMode, string> = { ga4: "GA4 property", gtm: "Tag Manager container", meta: "Meta Pixel", segment: "Segment source" };
+/** Anything that can be followed: the four tag products plus websites (Site DNA). */
+export type WatchKind = ContextMode | "site";
+export const KIND_NOUN: Record<WatchKind, string> = { ga4: "property", gtm: "container", meta: "pixel", segment: "source", site: "website" };
+export const KIND_LABEL: Record<WatchKind, string> = { ga4: "GA4 property", gtm: "Tag Manager container", meta: "Meta Pixel", segment: "Segment source", site: "Website (Site DNA)" };
+/** Where a followed target opens. */
+export const watchHref = (kind: WatchKind, target: string) => (kind === "site" ? `/site?url=${encodeURIComponent(target)}` : `/${kind}?id=${encodeURIComponent(target)}`);
 
 /** A vendor mark on a white glass tile; `large` renders the header-sized app icon. */
 export function BrandGlyph({ brand, size = "md" }: { brand: Brand; size?: "xs" | "md" | "large" }) {
@@ -34,7 +39,8 @@ export function BrandGlyph({ brand, size = "md" }: { brand: Brand; size?: "xs" |
 const PRODUCT = { ga4: brandByName("Google Analytics")!, gtm: brandByName("Google Tag Manager")!, meta: brandByName("Meta Pixel")!, segment: brandByName("Segment")! };
 
 /** Google Analytics, Tag Manager, Meta or Segment mark for a property, container, pixel or source. */
-export function ProductGlyph({ kind, size }: { kind: ContextMode; size?: "xs" | "md" | "large" }) {
+export function ProductGlyph({ kind, size }: { kind: WatchKind; size?: "xs" | "md" | "large" }) {
+  if (kind === "site") return <span className={size === "large" ? "app-icon g-blue" : `glyph g-blue${size === "xs" ? " xs" : ""}`}><Icon name="travel_explore" fill /></span>;
   return <BrandGlyph brand={PRODUCT[kind]} size={size} />;
 }
 
@@ -77,7 +83,7 @@ export function useSiteContext(): SiteContext {
 export function SiteHeader() {
   const path = usePathname();
   // Plain section links: carrying the current site or IDs is left to the in-page mode switch and "Switch to" links.
-  const link = (href: "/ga4" | "/gtm" | "/meta" | "/segment" | "/alerts", label: string, short?: string) => {
+  const link = (href: "/ga4" | "/gtm" | "/meta" | "/segment" | "/site" | "/alerts", label: string, short?: string) => {
     const on = !!path?.startsWith(href);
     return <Link href={href} className={on ? "on" : ""}>{short ? <><span className="label-long">{label}</span><span className="label-short" aria-hidden="true">{short}</span></> : label}</Link>;
   };
@@ -95,6 +101,7 @@ export function SiteHeader() {
           {link("/gtm", "Tag Manager", "GTM")}
           {link("/meta", "Meta")}
           {link("/segment", "Segment")}
+          {link("/site", "Site DNA", "Site")}
           {link("/alerts", "Alerts")}
         </nav>
       </div>
@@ -107,10 +114,10 @@ export function SiteFooter() {
     <footer className="footer">
       <div className="footer-inner">
         <Wordmark size="sm" />
-        <p>TagSpy reads only the public, published configuration that Google, Meta and Segment serve to every visitor. Nothing is executed, and no account access is used.</p>
+        <p>TagSpy reads only public responses: the configuration Google, Meta and Segment serve to every visitor, and the HTML, code and fonts a website sends to any browser. Nothing is executed, and no account access is used.</p>
         <div className="footer-row">
           <nav aria-label="Footer">
-            <Link href="/ga4">GA4</Link><span>|</span><Link href="/gtm">Tag Manager</Link><span>|</span><Link href="/meta">Meta</Link><span>|</span><Link href="/segment">Segment</Link><span>|</span><Link href="/alerts">Alerts</Link>
+            <Link href="/ga4">GA4</Link><span>|</span><Link href="/gtm">Tag Manager</Link><span>|</span><Link href="/meta">Meta</Link><span>|</span><Link href="/segment">Segment</Link><span>|</span><Link href="/site">Site DNA</Link><span>|</span><Link href="/alerts">Alerts</Link>
           </nav>
           <p>Designed and built by <a href={AUTHOR_URL} target="_blank" rel="noopener">thejayant</a> · <a href={AUTHOR_URL} target="_blank" rel="noopener">thejayant.in</a></p>
         </div>
@@ -138,6 +145,11 @@ export function useShare() {
 export function formatDateTime(iso: string | null | undefined): string {
   if (!iso) return "—";
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+}
+
+/** Marks Follow (history and alerts) as a paid feature that is coming soon, while it is switched off. */
+export function SoonBadge() {
+  return FOLLOW_ENABLED ? null : <span className="soon-badge">Paid · Soon</span>;
 }
 
 /** Read-only iOS-style switch. */

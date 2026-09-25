@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import { formatBytes } from "@/lib/compiled";
 import { primaryId, tagHeadline } from "@/lib/gtm/present";
 import type { GtmContainer, GtmTag, TypeCount } from "@/lib/gtm/types";
-import { Icon, ProductGlyph, RelatedLinks, SiteFooter, SiteHeader, formatDateTime, useShare, useSiteContext } from "./chrome";
+import { Icon, ProductGlyph, RelatedLinks, SiteFooter, SiteHeader, formatDateTime, useShare, useSiteContext, SoonBadge } from "./chrome";
 import { GtmDrawer, TagIcon, TriggerIcon, VariableIcon, type DrawerItem } from "./gtm-drawer";
 import { DiffList, HistoryPanel } from "./history";
 import { SearchPanel, useInspect } from "./inspect";
@@ -122,7 +122,7 @@ function Workspace({ container: c, changes, refreshing, initialView, onRefresh, 
           <RelatedLinks title="Switch to" items={related} />
           <div className="source-title">Actions</div>
           <nav className="source-list plain">
-            <button type="button" onClick={() => setWatching(true)}><Icon name="notifications" /> Follow container</button>
+            <button type="button" onClick={() => setWatching(true)}><Icon name="notifications" /> Follow container <SoonBadge /></button>
             <button type="button" onClick={onRefresh} disabled={refreshing}>{refreshing ? <span className="spinner" aria-hidden="true" /> : <Icon name="refresh" />} Check for updates</button>
             <a href={`/api/gtm/${encodeURIComponent(c.id)}/export`} download><Icon name="download" /> Export import file</a>
             <button type="button" onClick={() => share(`${window.location.origin}/gtm?id=${encodeURIComponent(c.id)}`, `${c.id} GTM container`)}><Icon name="ios_share" /> Share link</button>

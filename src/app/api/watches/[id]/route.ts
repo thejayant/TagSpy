@@ -7,15 +7,15 @@ export const dynamic = "force-dynamic";
 
 export async function DELETE(_request: Request, ctx: RouteContext<"/api/watches/[id]">) {
   const { id } = await ctx.params;
-  return deleteWatch(id) ? new Response(null, { status: 204 }) : Response.json({ error: "Alert not found." }, { status: 404 });
+  return (await deleteWatch(id)) ? new Response(null, { status: 204 }) : Response.json({ error: "Alert not found." }, { status: 404 });
 }
 
 /** `{ action: "check" }` re-reads the target now; `{ action: "test" }` sends a test message to the webhook. */
 export async function POST(request: Request, ctx: RouteContext<"/api/watches/[id]">) {
-  const limited = rateLimited(request, "watch-action", 60);
+  const limited = await rateLimited(request, "watch-action", 60);
   if (limited) return limited;
   const { id } = await ctx.params;
-  const watch = getWatch(id);
+  const watch = await getWatch(id);
   if (!watch) return Response.json({ error: "Alert not found." }, { status: 404 });
   const body = (await request.json().catch(() => ({}))) as { action?: string };
   try {

@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState } from "react";
 import type { EventRule, Ga4Report as Report, Toggle } from "@/lib/ga4/types";
-import { Icon, ProductGlyph, Switch, formatDateTime } from "./chrome";
+import { Icon, ProductGlyph, Switch, formatDateTime, SoonBadge } from "./chrome";
 import { Sheet } from "./sheet";
 
 const SectionColor = createContext("blue");
@@ -153,7 +153,7 @@ export function Ga4Report({ report, onWatch, onShare, onRefresh, refreshing }: {
           </div>
         </div>
         <div className="summary-actions">
-          <button type="button" className="btn btn-primary" onClick={onWatch}><Icon name="notifications" fill className="sm" /> Follow</button>
+          <button type="button" className="btn btn-primary" onClick={onWatch}><Icon name="notifications" fill className="sm" /> Follow <SoonBadge /></button>
           <button type="button" className="btn" onClick={onRefresh} disabled={refreshing} aria-label="Refresh">{refreshing ? <span className="spinner" aria-hidden="true" /> : <Icon name="refresh" className="sm" />}</button>
           <button type="button" className="btn" onClick={onShare} aria-label="Share"><Icon name="ios_share" className="sm" /></button>
         </div>

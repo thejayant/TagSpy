@@ -3,6 +3,7 @@ import type { Ga4Report } from "./ga4/types";
 import type { GtmContainer, GtmTag } from "./gtm/types";
 import type { MetaPixelReport } from "./meta/types";
 import type { SegmentDestination, SegmentReport } from "./segment/types";
+import type { SiteFingerprint } from "./site/fingerprint";
 
 export interface DiffEntry {
   area: string;
@@ -23,7 +24,7 @@ function stable(value: unknown): unknown {
 }
 
 /** Content hash that ignores fetch time and byte size, so re-reading an unchanged setup never creates a new version. */
-export function contentHash(model: Ga4Report | GtmContainer | MetaPixelReport | SegmentReport): string {
+export function contentHash(model: Ga4Report | GtmContainer | MetaPixelReport | SegmentReport | SiteFingerprint): string {
   return createHash("sha256").update(JSON.stringify(stable(model))).digest("hex");
 }
 
@@ -140,5 +141,17 @@ export function diffSegment(before: SegmentReport, after: SegmentReport): DiffEn
     ...keyed("Rules", before.rules, after.rules, (rule) => `${rule.destination}:${rule.expression}`, (rule) => `${rule.destination}: ${rule.sentence}`),
     ...(before.library.apiHost !== after.library.apiHost ? [{ area: "Library", change: "changed" as const, label: "Event endpoint", detail: `${before.library.apiHost} → ${after.library.apiHost}` }] : []),
     ...(before.library.version !== after.library.version ? [{ area: "Library", change: "changed" as const, label: "Analytics.js version", detail: `${before.library.version ?? "?"} → ${after.library.version ?? "?"}` }] : []),
+  ];
+}
+
+/** What changed between two scans of a website: stack, versions, typefaces, palette and hosting. */
+export function diffSite(before: SiteFingerprint, after: SiteFingerprint): DiffEntry[] {
+  const overlap = after.colors.filter((color) => before.colors.includes(color)).length;
+  const paletteShift = before.colors.length && after.colors.length && overlap < Math.min(before.colors.length, after.colors.length) / 2;
+  return [
+    ...keyed("Stack", before.techs, after.techs, (tech) => tech.name, (tech) => `${tech.name}${tech.version ? ` ${tech.version}` : ""} (${tech.category})`, (a, b) => (a.version !== b.version ? `version ${a.version ?? "?"} → ${b.version ?? "?"}` : undefined)),
+    ...listDiff("Typography", before.fonts, after.fonts),
+    ...listDiff("Hosting", before.hosting, after.hosting),
+    ...(paletteShift ? [{ area: "Design", change: "changed" as const, label: "Color palette", detail: `${after.colors.length - overlap} of the top ${after.colors.length} colors are new: likely a redesign` }] : []),
   ];
 }

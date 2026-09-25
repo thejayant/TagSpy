@@ -1,22 +1,43 @@
 "use client";
 
 import Link from "next/link";
+import { FOLLOW_ENABLED } from "@/lib/features";
 import { useCallback, useEffect, useState } from "react";
-import type { ContextMode } from "@/lib/site-context";
-import { Icon, KIND_LABEL, ProductGlyph, SiteFooter, SiteHeader, formatDateTime } from "./chrome";
+import { Icon, KIND_LABEL, ProductGlyph, SiteFooter, SiteHeader, formatDateTime, watchHref, type WatchKind } from "./chrome";
 import { DiffList } from "./history";
 import { useToast } from "./toast";
-import { EMAIL_KEY, readSavedEmail } from "./watch-dialog";
+import { EMAIL_KEY, FollowComingSoon, readSavedEmail } from "./watch-dialog";
 
 type Entry = Parameters<typeof DiffList>[0]["entries"][number];
 interface Watch {
-  id: string; kind: ContextMode; target: string; email: string; webhook: string | null; created_at: string;
+  id: string; kind: WatchKind; target: string; email: string; webhook: string | null; created_at: string;
   last_checked_at: string | null; last_status: string | null; last_error: string | null;
   changes: { id: number; detected_at: string; from_version: string | null; to_version: string | null; summary: Entry[] }[];
   notifications: { id: number; channel: string; status: string; error: string | null; created_at: string }[];
 }
 
+/** Alerts belong to Follow, a paid feature that is coming soon. */
 export function AlertsApp() {
+  if (FOLLOW_ENABLED) return <AlertsList />;
+  return (
+    <>
+      <SiteHeader />
+      <main>
+        <div className="page">
+          <section className="hero compact-top">
+            <p className="eyebrow">Alerts</p>
+            <h1 className="hero-title">Following is coming soon.</h1>
+            <p className="hero-sub">Change history and alerts will be part of TagSpy&apos;s paid plan.</p>
+          </section>
+          <section className="card card-pad"><FollowComingSoon /></section>
+        </div>
+      </main>
+      <SiteFooter />
+    </>
+  );
+}
+
+function AlertsList() {
   const [email, setEmail] = useState("");
   const [watches, setWatches] = useState<Watch[] | null>(null);
   const [busy, setBusy] = useState<string>("");
@@ -76,14 +97,14 @@ export function AlertsApp() {
             <section className="empty-state big">
               <Icon name="notifications_off" />
               <h3>No alerts yet</h3>
-              <p>Open a <Link href="/ga4">GA4 property</Link> or a <Link href="/gtm">GTM container</Link> and choose &ldquo;Follow&rdquo;.</p>
+              <p>Open a <Link href="/ga4">GA4 property</Link>, a <Link href="/gtm">GTM container</Link> or a <Link href="/site">website in Site DNA</Link> and choose &ldquo;Follow&rdquo;.</p>
             </section>
           ) : watches.map((watch) => (
             <section className="watch-card" key={watch.id}>
               <header>
                 <ProductGlyph kind={watch.kind} />
                 <div>
-                  <Link href={`/${watch.kind}?id=${encodeURIComponent(watch.target)}`}><code>{watch.target}</code></Link>
+                  <Link href={watchHref(watch.kind, watch.target)}><code>{watch.target}</code></Link>
                   <div className="muted" style={{ fontSize: 13 }}>{KIND_LABEL[watch.kind]} · {watch.email}</div>
                 </div>
                 <div className="buttons">

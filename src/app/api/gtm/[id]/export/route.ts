@@ -6,7 +6,7 @@ export const dynamic = "force-dynamic";
 
 /** Downloads the published container rebuilt as a Tag Manager import file (exportFormatVersion 2). */
 export async function GET(request: Request, ctx: RouteContext<"/api/gtm/[id]/export">) {
-  const limited = rateLimited(request, "inspect");
+  const limited = await rateLimited(request, "inspect");
   if (limited) return limited;
   const { id } = await ctx.params;
   try {

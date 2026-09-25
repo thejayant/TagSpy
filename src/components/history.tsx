@@ -1,8 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import type { ContextMode } from "@/lib/site-context";
-import { Icon, KIND_NOUN, formatDateTime } from "./chrome";
+import { FOLLOW_ENABLED } from "@/lib/features";
+import { Icon, KIND_NOUN, formatDateTime, type WatchKind } from "./chrome";
+import { FollowComingSoon } from "./watch-dialog";
 
 interface Snapshot { id: number; version: string | null; fetched_at: string; last_seen_at: string }
 interface Entry { area: string; change: "added" | "removed" | "changed"; label: string; detail?: string }
@@ -26,7 +27,12 @@ export function DiffList({ entries, limit }: { entries: Entry[]; limit?: number 
   );
 }
 
-export function HistoryPanel({ kind, target, refreshKey, onWatch }: { kind: ContextMode; target: string; refreshKey?: unknown; onWatch: () => void }) {
+/** Version history is part of Follow; while Follow is a coming-soon paid feature, explain that instead. */
+export function HistoryPanel(props: { kind: WatchKind; target: string; refreshKey?: unknown; onWatch: () => void }) {
+  return FOLLOW_ENABLED ? <VersionHistory {...props} /> : <FollowComingSoon />;
+}
+
+function VersionHistory({ kind, target, refreshKey, onWatch }: { kind: WatchKind; target: string; refreshKey?: unknown; onWatch: () => void }) {
   const [data, setData] = useState<{ snapshots: Snapshot[]; changes: Change[] } | null>(null);
   const [error, setError] = useState("");
   const [from, setFrom] = useState<number | "">("");
@@ -103,13 +109,13 @@ export function HistoryPanel({ kind, target, refreshKey, onWatch }: { kind: Cont
             </summary>
             <div style={{ marginTop: 8 }}><DiffList entries={change.summary} limit={30} /></div>
           </details>
-        )) : <p className="muted" style={{ margin: 0 }}>No changes detected yet. Each time this {KIND_NOUN[kind]} is read, a new version is stored only if its configuration differs.</p>}
+        )) : <p className="muted" style={{ margin: 0 }}>No changes detected yet. Each time this {KIND_NOUN[kind]} is {kind === "site" ? "scanned" : "read"}, a new version is stored only if its {kind === "site" ? "stack, fonts, palette or hosting" : "configuration"} differs.</p>}
       </section>
 
       <section className="promo">
         <span className="promo-icon"><Icon name="history" /></span>
         <h3>Keep every version.</h3>
-        <p>Follow this {KIND_NOUN[kind]} and we re-read it daily, keep each published version side by side, and alert you whenever it changes. Google itself only publishes the live version.</p>
+        <p>Follow this {KIND_NOUN[kind]} and we re-read it daily, keep each published version side by side, and alert you whenever it changes. {kind === "site" ? "A redesign, a new framework or a font swap shows up as a change." : "Google itself only publishes the live version."}</p>
         <button type="button" className="btn btn-primary" onClick={onWatch}>Follow {KIND_NOUN[kind]}</button>
       </section>
     </div>

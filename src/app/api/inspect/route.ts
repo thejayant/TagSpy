@@ -3,13 +3,15 @@ import { formatBytes } from "@/lib/compiled";
 import { discoverIds, ga4IdsFromContainers, idsFromSource, pixelIdsFromContainers, segmentKeysFromContainers, type FoundId } from "@/lib/discover";
 import { rateLimited } from "@/lib/http";
 import { parseInput } from "@/lib/ids";
-import { inspectGa4, inspectGtm, inspectMeta, inspectSegment } from "@/lib/service";
+import { inspectGa4, inspectGtm, inspectMeta, inspectSegment, inspectSite } from "@/lib/service";
 
 export const dynamic = "force-dynamic";
+// Site DNA scans read dozens of files; 60 s is within Vercel Hobby's function limit.
+export const maxDuration = 60;
 
 /** `input` is an ID or URL; `html` is page source pasted by the user when a site blocks automated reads. */
 const Body = z.object({
-  mode: z.enum(["ga4", "gtm", "meta", "segment"]),
+  mode: z.enum(["ga4", "gtm", "meta", "segment", "site"]),
   input: z.string().min(1).max(2048).optional(),
   html: z.string().min(1).max(8_000_000).optional(),
   fresh: z.boolean().optional(),
@@ -20,21 +22,22 @@ type Event =
   | { type: "choices"; ids: FoundId[] }
   /** Every ID discovered along the way, so the client can link the site's GA4, GTM and Meta views together. */
   | { type: "found"; ids: string[] }
-  | { type: "result"; kind: "ga4" | "gtm" | "meta" | "segment"; id: string; model: unknown; changes: unknown[] }
+  | { type: "result"; kind: "ga4" | "gtm" | "meta" | "segment" | "site"; id: string; model: unknown; changes: unknown[] }
   | { type: "error"; message: string };
 
 /** Streams NDJSON progress lines, then either a result, a list of IDs to choose from, or an error. */
 export async function POST(request: Request) {
-  const limited = rateLimited(request, "inspect");
+  const limited = await rateLimited(request, "inspect");
   if (limited) return limited;
   const parsed = Body.safeParse(await request.json().catch(() => null));
-  if (!parsed.success) return Response.json({ error: "Send { mode: 'ga4' | 'gtm' | 'meta' | 'segment' } with either input (ID or URL) or html (page source)." }, { status: 400 });
+  if (!parsed.success) return Response.json({ error: "Send { mode: 'ga4' | 'gtm' | 'meta' | 'segment' | 'site' } with either input (ID or URL) or html (page source)." }, { status: 400 });
   const { mode, input, html, fresh } = parsed.data;
   const encoder = new TextEncoder();
 
   const stream = new ReadableStream({
     async start(controller) {
-      const send = (event: Event) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+      // The visitor may cancel mid-scan; writing to a closed stream must not throw.
+      const send = (event: Event) => { try { controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`)); } catch { /* cancelled */ } };
       const log = (text: string, level: "info" | "ok" | "warn" = "info") => send({ type: "log", text, level });
       const run = async (id: string) => {
         if (mode === "segment") {
@@ -68,6 +71,18 @@ export async function POST(request: Request) {
         if (ids.length === 1) { log(`Found ${ids[0].id} (${ids[0].via})`, "ok"); await run(ids[0].id); }
         else { log(`Found ${ids.length} candidates — pick one`, "ok"); send({ type: "choices", ids }); }
       };
+      const scanWebsite = async () => {
+        const target = html ? null : parseInput(input!);
+        if (target?.type === "id") throw new Error(`${target.id} is a tag ID, not a website. Enter a website address like example.com.`);
+        if (html) log(`Scanning ${formatBytes(new TextEncoder().encode(html).length)} of pasted page source`);
+        const { report, changes } = await inspectSite(target ? { url: target.url } : { html }, { log, signal: request.signal });
+        if (report.page.trackingIds.length) send({ type: "found", ids: report.page.trackingIds });
+        send({ type: "result", kind: "site", id: report.host, model: report, changes });
+      };
+      if (mode === "site") {
+        try { await scanWebsite(); } catch (error) { send({ type: "error", message: error instanceof Error ? error.message : "Something went wrong." }); } finally { try { controller.close(); } catch { /* cancelled */ } }
+        return;
+      }
       const WANT = { gtm: "GTM", meta: "META", segment: "SEGMENT" } as const;
       const wanted = (item: FoundId) => (mode === "ga4" ? item.kind === "GA4" || item.kind === "GT" : item.kind === WANT[mode]);
       const fromContainers = mode === "meta" ? pixelIdsFromContainers : mode === "segment" ? segmentKeysFromContainers : ga4IdsFromContainers;
@@ -107,7 +122,7 @@ export async function POST(request: Request) {
       } catch (error) {
         send({ type: "error", message: error instanceof Error ? error.message : "Something went wrong." });
       } finally {
-        controller.close();
+        try { controller.close(); } catch { /* already closed by a cancel */ }
       }
     },
   });

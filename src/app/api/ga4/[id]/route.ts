@@ -4,7 +4,7 @@ import { inspectGa4 } from "@/lib/service";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request, ctx: RouteContext<"/api/ga4/[id]">) {
-  const limited = rateLimited(request, "inspect");
+  const limited = await rateLimited(request, "inspect");
   if (limited) return limited;
   const { id } = await ctx.params;
   try {

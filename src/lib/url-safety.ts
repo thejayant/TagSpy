@@ -33,6 +33,12 @@ export async function assertSafeUrl(value: string): Promise<URL> {
 }
 
 export async function safeFetch(url: string, init: RequestInit = {}, limits = { redirects: 4, bytes: 5_000_000 }): Promise<{ response: Response; body: string; finalUrl: string }> {
+  const { response, bytes, finalUrl } = await safeFetchBytes(url, init, limits);
+  return { response, body: new TextDecoder().decode(bytes), finalUrl };
+}
+
+/** Like safeFetch, but returns the raw bytes (font files and other binary resources). */
+export async function safeFetchBytes(url: string, init: RequestInit = {}, limits = { redirects: 4, bytes: 5_000_000 }): Promise<{ response: Response; bytes: Buffer; finalUrl: string }> {
   let current = (await assertSafeUrl(url)).toString();
   for (let hop = 0; hop <= limits.redirects; hop++) {
     const response = await fetch(current, { ...init, redirect: "manual", signal: init.signal });
@@ -45,7 +51,7 @@ export async function safeFetch(url: string, init: RequestInit = {}, limits = { 
     }
     const declared = Number(response.headers.get("content-length") ?? 0);
     if (declared > limits.bytes) throw new Error("Response exceeded the scan size limit.");
-    if (!response.body) return { response, body: "", finalUrl: current };
+    if (!response.body) return { response, bytes: Buffer.alloc(0), finalUrl: current };
     const reader = response.body.getReader();
     const chunks: Uint8Array[] = [];
     let size = 0;
@@ -56,7 +62,7 @@ export async function safeFetch(url: string, init: RequestInit = {}, limits = { 
       if (size > limits.bytes) { await reader.cancel(); throw new Error("Response exceeded the scan size limit."); }
       chunks.push(value);
     }
-    return { response, body: new TextDecoder().decode(Buffer.concat(chunks)), finalUrl: current };
+    return { response, bytes: Buffer.concat(chunks), finalUrl: current };
   }
   throw new Error("Redirect validation failed.");
 }
