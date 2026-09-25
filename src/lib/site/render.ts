@@ -187,8 +187,11 @@ export async function renderSite(url: string, log: Log, signal?: AbortSignal): P
     browser = opened.browser;
     runtime.provider = opened.provider;
     if (signal?.aborted) throw new Error("The deep scan was cancelled.");
-    // A fresh incognito context per scan; some remote browsers only offer the default one.
-    const context = await browser.createBrowserContext().catch(() => browser!.defaultBrowserContext());
+    // Browsers we launch are new for every scan, so their default context is already clean. Connected browsers get a fresh
+    // incognito context (falling back to the default one). The serverless Chromium runs with --single-process, where
+    // creating a second context crashes the browser ("Target.createTarget: Target closed").
+    const launched = opened.provider === "local" || opened.provider === "serverless";
+    const context = launched ? browser.defaultBrowserContext() : await browser.createBrowserContext().catch(() => browser!.defaultBrowserContext());
     const page = await context.newPage();
     await page.setUserAgent({ userAgent: USER_AGENT });
     await page.setExtraHTTPHeaders({ "Accept-Language": "en-US,en;q=0.9" });

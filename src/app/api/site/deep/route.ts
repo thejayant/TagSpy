@@ -66,7 +66,7 @@ export async function POST(request: Request) {
       } catch (error) {
         const message = error instanceof Error ? error.message : "The deep scan failed.";
         // Failures on our side don't use up the visitor's quota; a cancel does (it still ran a browser).
-        if (!request.signal.aborted && /Another deep scan|not available|No browser|Could not start|browser/i.test(message)) await refundQuota(quotaKey).catch(() => {});
+        if (!request.signal.aborted && /Another deep scan|not available|No browser|Could not start|browser|Protocol error|Target closed/i.test(message)) await refundQuota(quotaKey).catch(() => {});
         send({ type: "error", message });
       } finally {
         try { controller.close(); } catch { /* already closed by a cancel */ }
