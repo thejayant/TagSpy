@@ -12,7 +12,7 @@ import { WatchBanner, WatchDialog } from "./watch-dialog";
 
 export const SAMPLE_GA4 = "G-6SET8QZ3TV";
 
-export function Ga4App({ initialId }: { initialId?: string }) {
+export function Ga4App({ initialId, guide }: { initialId?: string; guide?: React.ReactNode }) {
   const [value, setValue] = useState(initialId ?? "");
   const [watching, setWatching] = useState(false);
   const [history, setHistory] = useState(false);
@@ -75,6 +75,7 @@ export function Ga4App({ initialId }: { initialId?: string }) {
               <WatchBanner kind="ga4" target={report.measurementId} variant="bottom" onWatch={() => setWatching(true)} />
             </>
           )}
+          {guide}
         </div>
       </main>
       <SiteFooter />

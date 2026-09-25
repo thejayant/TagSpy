@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import { JetBrains_Mono, Manrope, Sora, Unbounded } from "next/font/google";
+import { MotionRoot } from "@/components/motion";
+import { OmniboxPalette } from "@/components/omnibox";
 import { ToastProvider } from "@/components/toast";
+import { appUrl } from "@/lib/env";
 import "./globals.css";
 
 // Refract type: Unbounded for the wordmark, Sora for display, Manrope for text, JetBrains Mono for IDs and instrument labels.
@@ -10,8 +13,10 @@ const sans = Manrope({ subsets: ["latin"], variable: "--font-sans", display: "sw
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: { default: "TagSpy — See inside any GA4 & Tag Manager setup", template: "%s · TagSpy" },
-  description: "Inspect the public GA4 configuration and Google Tag Manager container of any website: events, key events, consent, tags, triggers and variables.",
+  // Resolves relative canonical and Open Graph URLs.
+  metadataBase: new URL(appUrl()),
+  title: { default: "TagSpy: Free Website Inspector", template: "%s · TagSpy" },
+  description: "Inspect any website for free: its GA4 setup, Google Tag Manager container, Meta Pixel, Segment destinations, technology stack and fonts, and whether it was built with AI.",
 };
 
 export const viewport: Viewport = {
@@ -21,15 +26,24 @@ export const viewport: Viewport = {
   ],
 };
 
+/**
+ * Turns on the hero intro. It is CSS, so it starts the moment a hero is painted (on the first load and after every
+ * client-side navigation) instead of waiting for React to hydrate, which made headlines animate after everything else.
+ */
+const MOTION_BOOT = `try{if(!matchMedia("(prefers-reduced-motion: reduce)").matches)document.documentElement.classList.add("intro")}catch(e){}`;
+
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${brand.variable} ${display.variable} ${sans.variable} ${mono.variable}`}>
+    // suppressHydrationWarning: the script below adds a class to <html> before React hydrates.
+    <html lang="en" className={`${brand.variable} ${display.variable} ${sans.variable} ${mono.variable}`} suppressHydrationWarning>
       <head>
+        {/* Enables the CSS hero intro before the first paint (see MOTION_BOOT). */}
+        <script dangerouslySetInnerHTML={{ __html: MOTION_BOOT }} />
         {/* eslint-disable-next-line @next/next/no-page-custom-font, @next/next/google-font-display -- icon font: "block" avoids flashing ligature names before it loads */}
         <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,300..600,0..1,0&display=block" />
       </head>
       <body>
-        <ToastProvider>{children}</ToastProvider>
+        <ToastProvider>{children}<MotionRoot /><OmniboxPalette /></ToastProvider>
       </body>
     </html>
   );

@@ -23,7 +23,7 @@ const watchKey = (report: Report) => {
 
 export interface DeepStatus { enabled: boolean; provider: string | null; reason: string | null; storage: string; perVisit: number; remaining: number }
 
-export function SiteApp({ initialUrl, initialVs }: { initialUrl?: string; initialVs?: string }) {
+export function SiteApp({ initialUrl, initialVs, guide }: { initialUrl?: string; initialVs?: string; guide?: React.ReactNode }) {
   const [value, setValue] = useState(initialUrl ?? "");
   const inspect = useInspect<Report>("site");
   const deep = useInspect<Report>("site", "/api/site/deep");
@@ -98,6 +98,7 @@ export function SiteApp({ initialUrl, initialVs }: { initialUrl?: string; initia
                 onCompare={report.source === "url" ? (other) => router.push(`/site?url=${encodeURIComponent(address(report))}&vs=${encodeURIComponent(other)}`) : undefined} />
             </>
           )}
+          {guide}
         </div>
       </main>
       <SiteFooter />

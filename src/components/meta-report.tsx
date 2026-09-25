@@ -34,8 +34,9 @@ function ScoreRing({ value }: { value: number }) {
       <svg viewBox="0 0 120 120" aria-hidden="true">
         <defs>
           <linearGradient id="score-gradient" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="var(--ring-a)" />
-            <stop offset="100%" stopColor="var(--ring-b)" />
+            {/* CSS variables only resolve in style, not in presentation attributes. */}
+            <stop offset="0%" style={{ stopColor: "var(--ring-a)" }} />
+            <stop offset="100%" style={{ stopColor: "var(--ring-b)" }} />
           </linearGradient>
         </defs>
         <circle cx="60" cy="60" r={radius} className="track" />

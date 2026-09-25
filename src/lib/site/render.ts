@@ -149,8 +149,17 @@ const assetKind = (url: string): { group: "3d" | "media" | "vector" | null; kind
 
 interface Tracked { url: string; type: string; bytes: number }
 
+export interface RenderOptions {
+  /** An extra in-page script (a plain JS expression) run after scrolling; its JSON result is returned as `extra`. */
+  probe?: string;
+  /** The second load with "reduce motion" on (default true). Skipping it saves about a third of the browser time. */
+  reducedMotion?: boolean;
+  /** Screenshots while scrolling (default true); the first screen is always kept. */
+  scrollShots?: boolean;
+}
+
 /** Renders `url` and returns what the page did. Never throws for page problems; throws only when no browser can start. */
-export async function renderSite(url: string, log: Log, signal?: AbortSignal): Promise<{ runtime: RuntimeReport; techs: Tech[]; scriptUrls: string[]; html: string }> {
+export async function renderSite(url: string, log: Log, signal?: AbortSignal, options: RenderOptions = {}): Promise<{ runtime: RuntimeReport; techs: Tech[]; scriptUrls: string[]; html: string; scripts: { url: string; text: string }[]; extra: unknown }> {
   const status = deepScanStatus();
   if (!status.enabled || !status.provider) throw new Error(status.reason ?? "Deep scans are not available.");
   if (busy) throw new Error("Another deep scan is running on this server. Try again in a minute.");
@@ -178,6 +187,7 @@ export async function renderSite(url: string, log: Log, signal?: AbortSignal): P
   };
   let browser: Browser | null = null;
   let renderedHtml = "";
+  let extra: unknown = null;
   // Cancelling closes the browser at once: the scan stops and nothing it saw is kept.
   const onAbort = () => { void browser?.close().catch(() => {}); };
   signal?.addEventListener("abort", onAbort);
@@ -228,7 +238,7 @@ export async function renderSite(url: string, log: Log, signal?: AbortSignal): P
       for (let step = 1; step <= 3 && remaining() > 10_000; step++) {
         for (let tick = 0; tick < 6; tick++) { await page.mouse.wheel({ deltaY: 160 }).catch(() => {}); await sleep(60); }
         await sleep(900);
-        runtime.screenshots.push({ label: `Scroll ${step}`, src: await shot(page) });
+        if (options.scrollShots !== false) runtime.screenshots.push({ label: `Scroll ${step}`, src: await shot(page) });
       }
     }
 
@@ -239,10 +249,11 @@ export async function renderSite(url: string, log: Log, signal?: AbortSignal): P
       if (collected && loadVitals) runtime.vitals = { ...runtime.vitals, lcp: loadVitals.lcp ?? runtime.vitals.lcp, cls: loadVitals.cls, longTasks: loadVitals.longTasks, totalBlockingTime: loadVitals.tbt };
       else runtime.partial = true;
       renderedHtml = await page.content().catch(() => "");
+      if (options.probe && remaining() > 2000) extra = await Promise.race([page.evaluate(options.probe), sleep(Math.max(1000, remaining() - 1500)).then(() => null)]).catch(() => null);
     } else runtime.partial = true;
 
     // ── Reduced motion: load again with prefers-reduced-motion: reduce and compare ──
-    if (!runtime.blocked && remaining() > 14_000) {
+    if (options.reducedMotion !== false && !runtime.blocked && remaining() > 14_000) {
       log("Loading again with “reduce motion” turned on");
       const reduced = await context.newPage();
       await reduced.setUserAgent({ userAgent: USER_AGENT });
@@ -305,7 +316,7 @@ export async function renderSite(url: string, log: Log, signal?: AbortSignal): P
   const { techs } = detect({ html: renderedHtml, urls: tracked.map((item) => item.url), js: scripts, css: styles, headers: {}, cookies: [], meta: {} }, new URL(url).hostname);
   runtime.durationMs = Date.now() - started;
   log(`Rendered in ${(runtime.durationMs / 1000).toFixed(1)} s: ${runtime.network.requests} requests, ${runtime.globals.length} runtime libraries, ${runtime.webgl.contexts.length} WebGL context${runtime.webgl.contexts.length === 1 ? "" : "s"}`, "ok");
-  return { runtime, techs, html: renderedHtml, scriptUrls: tracked.filter((item) => item.type === "script").map((item) => item.url.split("#")[0]) };
+  return { runtime, techs, html: renderedHtml, scripts, extra, scriptUrls:tracked.filter((item) => item.type === "script").map((item) => item.url.split("#")[0]) };
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, Math.max(0, ms)));

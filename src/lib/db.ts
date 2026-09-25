@@ -258,6 +258,24 @@ export async function refundQuota(key: string): Promise<void> {
   await run("UPDATE rate_limits SET count=MAX(0, count-1) WHERE key=? AND window=?", [key, today()]);
 }
 
+/**
+ * Lifetime allowances (the AI Website Detector's one free run): the same counter table, in a window that never
+ * expires ("lifetime" sorts after every dated window, so the hourly clean-up leaves it alone).
+ */
+const LIFETIME = "lifetime";
+export async function lifetimeUsed(key: string): Promise<number> {
+  return Number((await one<{ count: number }>("SELECT count FROM rate_limits WHERE key=? AND window=?", [key, LIFETIME]))?.count ?? 0);
+}
+export async function consumeLifetime(key: string, maximum: number): Promise<boolean> {
+  const row = await one<{ count: number }>("INSERT INTO rate_limits(key,window,count) VALUES(?,?,1) ON CONFLICT(key,window) DO UPDATE SET count=count+1 RETURNING count", [key, LIFETIME]);
+  if (Number(row?.count ?? 1) <= maximum) return true;
+  await refundLifetime(key);
+  return false;
+}
+export async function refundLifetime(key: string): Promise<void> {
+  await run("UPDATE rate_limits SET count=MAX(0, count-1) WHERE key=? AND window=?", [key, LIFETIME]);
+}
+
 export async function resetDatabaseForTests(): Promise<void> {
   if (process.env.NODE_ENV !== "test") throw new Error("Test-only database reset refused.");
   await (await driver()).exec("DELETE FROM snapshots; DELETE FROM changes; DELETE FROM watches; DELETE FROM notifications; DELETE FROM rate_limits;");

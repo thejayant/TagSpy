@@ -11,7 +11,7 @@ import { WatchBanner, WatchDialog } from "./watch-dialog";
 
 export const SAMPLE_WRITE_KEY = "NBBzVMlQO9GFFqU6upGyk4gqf6zV28TH";
 
-export function SegmentApp({ initialId }: { initialId?: string }) {
+export function SegmentApp({ initialId, guide }: { initialId?: string; guide?: React.ReactNode }) {
   const [value, setValue] = useState(initialId ?? "");
   const [watching, setWatching] = useState(false);
   const [history, setHistory] = useState(false);
@@ -75,6 +75,7 @@ export function SegmentApp({ initialId }: { initialId?: string }) {
               <WatchBanner kind="segment" target={report.writeKey} variant="bottom" onWatch={() => setWatching(true)} />
             </>
           )}
+          {guide}
         </div>
       </main>
       <SiteFooter />

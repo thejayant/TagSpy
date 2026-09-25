@@ -150,11 +150,22 @@ function mentionedScripts(text: string, fileUrl: string): string[] {
 
 const GLSL = /void\s+main\s*\(\s*(?:void\s*)?\)\s*\{/g;
 
+/** The raw files a scan read, handed to `collect` (the AI Website Detector reads them) and never kept by the scan. */
+export interface ScanFiles {
+  html: string;
+  headers: Record<string, string>;
+  js: { url: string; text: string }[];
+  css: { url: string; text: string }[];
+  /** Public source maps, unparsed. */
+  maps: { url: string; body: string }[];
+}
+
 /**
  * `url` fetches the page; `html` scans given source. `html` + `baseUrl` scans a page rendered elsewhere (the deep scan
  * fallback for sites that refuse plain requests): files resolve against `baseUrl` and DNS/TLS are still read.
+ * `collect` receives the raw files once the scan has read them.
  */
-export async function scanSite(input: { url?: string; html?: string; baseUrl?: string }, log: Log, signal?: AbortSignal): Promise<SiteReport> {
+export async function scanSite(input: { url?: string; html?: string; baseUrl?: string }, log: Log, signal?: AbortSignal, collect?: (files: ScanFiles) => void): Promise<SiteReport> {
   const started = Date.now();
   // Every request stops when its own timeout passes or the visitor cancels the scan.
   const limit = (ms: number) => (signal ? AbortSignal.any([AbortSignal.timeout(Math.max(1, ms)), signal]) : AbortSignal.timeout(Math.max(1, ms)));
@@ -308,7 +319,8 @@ export async function scanSite(input: { url?: string; html?: string; baseUrl?: s
 
   // ── 6. Source maps ──────────────────────────────────────────────────────────────────────────────────────────────
   const sourceMaps: SourceMapInfo[] = [];
-  const own = js.filter((file) => sameSite(file.url)).sort((a, b) => b.text.length - a.text.length);
+  const mapBodies: { url: string; body: string }[] = [];
+  const own =js.filter((file) => sameSite(file.url)).sort((a, b) => b.text.length - a.text.length);
   const candidates = own.map((file, index) => ({ file, map: sourceMapUrl(file.url, file.text, file.sourceMap) ?? (index < 2 ? `${file.url.split("?")[0]}.map` : null) })).filter((item) => item.map).slice(0, 6);
   for (const { file, map } of candidates) {
     if (sourceMaps.length >= LIMITS.maps || remaining() < 5000) break;
@@ -316,6 +328,7 @@ export async function scanSite(input: { url?: string; html?: string; baseUrl?: s
       const result = await safeFetch(map!, { headers: { ...HEADERS, Accept: "application/json,*/*" }, signal: limit(Math.min(10_000, remaining())) }, { redirects: 2, bytes: LIMITS.mapBytes });
       if (!result.response.ok || !result.body.trimStart().startsWith("{")) continue;
       const info = readSourceMap(file.url, map!, result.body);
+      if (info && collect) mapBodies.push({ url: map!, body: result.body });
       if (info) { sourceMaps.push(info); assets.push({ url: map!, kind: "sourcemap", bytes: result.body.length, firstParty: true, techs: [] }); log(`Public source map: ${info.files} original files, ${info.packages.length} npm packages`, "warn"); }
     } catch { /* no map */ }
   }
@@ -363,6 +376,7 @@ export async function scanSite(input: { url?: string; html?: string; baseUrl?: s
   report.insights = insights(report);
   report.limits = limits(report);
   report.durationMs = Date.now() - started;
+  collect?.({ html, headers, js: js.map(({ url, text }) => ({ url, text })), css: css.map(({ url, text }) => ({ url, text })), maps: mapBodies });
   return report;
 }
 

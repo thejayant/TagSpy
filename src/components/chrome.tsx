@@ -83,25 +83,30 @@ export function useSiteContext(): SiteContext {
 export function SiteHeader() {
   const path = usePathname();
   // Plain section links: carrying the current site or IDs is left to the in-page mode switch and "Switch to" links.
-  const link = (href: "/ga4" | "/gtm" | "/meta" | "/segment" | "/site" | "/alerts", label: string, short?: string) => {
+  const link = (href: "/ga4" | "/gtm" | "/meta" | "/segment" | "/site" | "/ai-website-detector" | "/alerts", label: string, short?: string, fresh = false) => {
     const on = !!path?.startsWith(href);
-    return <Link href={href} className={on ? "on" : ""}>{short ? <><span className="label-long">{label}</span><span className="label-short" aria-hidden="true">{short}</span></> : label}</Link>;
+    return <Link href={href} className={`${on ? "on" : ""}${fresh ? " fresh" : ""}`}>{short ? <><span className="label-long">{label}</span><span className="label-short" aria-hidden="true">{short}</span></> : label}</Link>;
   };
   return (
     <header className="nav">
       <div className="nav-inner">
         <div className="brand">
           <div className="brand-text">
-            <Link href="/ga4" className="brand-link" aria-label="TagSpy home"><Wordmark /></Link>
+            <Link href="/" className="brand-link" aria-label="TagSpy home"><Wordmark /></Link>
             <a href={AUTHOR_URL} className="brand-by" target="_blank" rel="noopener">Built by thejayant</a>
           </div>
         </div>
+        {/* Opens the ⌘K omnibox (OmniboxPalette listens for this event). */}
+        <button type="button" className="nav-search" onClick={() => window.dispatchEvent(new Event("tagspy:omnibox"))} aria-label="Search TagSpy (Ctrl+K)" title="Search TagSpy (Ctrl+K)">
+          <Icon name="search" className="sm" /><span className="nav-search-label">Search</span><kbd>⌘K</kbd>
+        </button>
         <nav className="nav-links" aria-label="Main">
           {link("/ga4", "GA4")}
           {link("/gtm", "Tag Manager", "GTM")}
           {link("/meta", "Meta")}
           {link("/segment", "Segment")}
           {link("/site", "Site DNA", "Site")}
+          {link("/ai-website-detector", "AI Detector", "AI", true)}
           {link("/alerts", "Alerts")}
         </nav>
       </div>
@@ -117,7 +122,7 @@ export function SiteFooter() {
         <p>TagSpy reads only public responses: the configuration Google, Meta and Segment serve to every visitor, and the HTML, code and fonts a website sends to any browser. Nothing is executed, and no account access is used.</p>
         <div className="footer-row">
           <nav aria-label="Footer">
-            <Link href="/ga4">GA4</Link><span>|</span><Link href="/gtm">Tag Manager</Link><span>|</span><Link href="/meta">Meta</Link><span>|</span><Link href="/segment">Segment</Link><span>|</span><Link href="/site">Site DNA</Link><span>|</span><Link href="/alerts">Alerts</Link>
+            <Link href="/ga4">GA4</Link><span>|</span><Link href="/gtm">Tag Manager</Link><span>|</span><Link href="/meta">Meta</Link><span>|</span><Link href="/segment">Segment</Link><span>|</span><Link href="/site">Site DNA</Link><span>|</span><Link href="/ai-website-detector">AI Website Detector</Link><span>|</span><Link href="/alerts">Alerts</Link>
           </nav>
           <p>Designed and built by <a href={AUTHOR_URL} target="_blank" rel="noopener">thejayant</a> · <a href={AUTHOR_URL} target="_blank" rel="noopener">thejayant.in</a></p>
         </div>

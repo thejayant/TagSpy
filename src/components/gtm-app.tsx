@@ -25,7 +25,7 @@ function useWide(query = "(min-width: 1180px)") {
   );
 }
 
-export function GtmApp({ initialId, initialView }: { initialId?: string; initialView?: string }) {
+export function GtmApp({ initialId, initialView, guide }: { initialId?: string; initialView?: string; guide?: React.ReactNode }) {
   const [value, setValue] = useState(initialId ?? "");
   const inspect = useInspect<GtmContainer>("gtm");
   const { state, run, reset } = inspect;
@@ -50,6 +50,7 @@ export function GtmApp({ initialId, initialView }: { initialId?: string; initial
       <main>
         <div className="page">
           <SearchPanel mode="gtm" value={value} onChange={setValue} onSubmit={(input) => void run(input)} inspect={inspect} onPick={(id) => { setValue(id); void run(id); }} sampleId="GTM-N233G8C" />
+          {guide}
         </div>
       </main>
       <SiteFooter />

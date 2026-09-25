@@ -11,7 +11,7 @@ import { WatchBanner, WatchDialog } from "./watch-dialog";
 
 export const SAMPLE_PIXEL = "1882987898627194";
 
-export function MetaApp({ initialId }: { initialId?: string }) {
+export function MetaApp({ initialId, guide }: { initialId?: string; guide?: React.ReactNode }) {
   const [value, setValue] = useState(initialId ?? "");
   const [watching, setWatching] = useState(false);
   const [history, setHistory] = useState(false);
@@ -73,6 +73,7 @@ export function MetaApp({ initialId }: { initialId?: string }) {
               <WatchBanner kind="meta" target={report.pixelId} variant="bottom" onWatch={() => setWatching(true)} />
             </>
           )}
+          {guide}
         </div>
       </main>
       <SiteFooter />

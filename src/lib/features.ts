@@ -5,6 +5,9 @@
  */
 export const FOLLOW_ENABLED = process.env.NEXT_PUBLIC_FOLLOW_ENABLED === "true";
 
+/** Where "Support this project" links (e.g. a Buy Me a Coffee or GitHub Sponsors page). Defaults to the author's site. */
+export const SUPPORT_URL = process.env.NEXT_PUBLIC_SUPPORT_URL?.trim() || "https://thejayant.in";
+
 /** What Follow will include, shown wherever it is advertised. */
 export const FOLLOW_PERKS = [
   "Daily re-checks of GA4 properties, Tag Manager containers, Meta pixels, Segment sources and websites",
